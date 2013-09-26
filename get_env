@@ -1,4 +1,19 @@
 #!/bin/bash
+# get_env - a program for downloading and managing of distributed dotfiles.
+# Copyright (C) 2013 Björn Bohman
+
+# This program is free software: you can redistribute it and/or modify
+# it under the terms of the GNU General Public License as published by
+# the Free Software Foundation, either version 3 of the License, or
+# (at your option) any later version.
+
+# This program is distributed in the hope that it will be useful,
+# but WITHOUT ANY WARRANTY; without even the implied warranty of
+# MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+# GNU General Public License for more details.
+
+# You should have received a copy of the GNU General Public License
+# along with this program.  If not, see {http://www.gnu.org/licenses/}.
 #
 # Made by Bjorn Bohman 2010
 # With help and suggestions from Martin Viklund and Niklas Wennerstrand
@@ -87,6 +102,17 @@ DEBUG=""
 ddate=$(date +'%Y-%m-%dT%H:%M:%S')
 
 ###  Functions
+
+# Function to print GNU disclaimer
+gnuLicens() {
+cat <<EOF
+get_env  Copyright (C) 2013 Björn Bohman
+This program comes with ABSOLUTELY NO WARRANTY
+This is free software, and you are welcome to redistribute it
+under certain conditions.
+For more information see: https://github.com/spetzreborn/get_env
+EOF
+}
 
 # Function for wordwrapping
 foldit() {
@@ -318,6 +344,8 @@ if [ $TERM = screen ];then
 	dbg "\$TERM was screen, setting it to xterm for running in this script"
 fi
 
+# Print GNUinformation
+gnuLicens
 
 while getopts ":hdr:l:" opt; do
 	case $opt in
