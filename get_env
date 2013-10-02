@@ -286,20 +286,29 @@ gen_conffile() {
 	dbg "${FUNCNAME}() was called, arg: $*"
 	CONFFILECONTENT="\
 # Where do download new get_env from (should be an github repository)
-get_envGitServer=github.com
-get_envGitUser=spetzreborn
-get_env_repository=get_env
+get_envGitServer=${get_envGitServer:-"github.com"}
+# github user
+get_envGitUser=${get_envGitUser:-"spetzreborn"}
+# github repository
+get_envRepository=${get_envRepository:-"get_env"}
+# Branch from witch get_env is downloaded from. master or trunk
+get_envVersion=${VERSION:-"master"}
 
-# If set, report status to this address. (Uses report.php from this repository)
-reportUrl=""
-
-# Where to download dotfiles from. Either github or other repository.
-# See README for more information.
+# Where to download dotfiles from. (should be an github repository)
+gitServer=${gitServer:-"github.com"}
+# github user
+gitUser=${gitUser:-"spetzreborn"}
+# github repository
+repository=${repository:-"dotfiles"}
+# Branch from witch get_env is downloaded from. master or trunk
+VERSION=${VERSION:-"master"}
 
 # Path to local repository
 L_REPO=$L_REPO
-# Running version, master or other branch. 
-VERSION=${VERSION:-"master"}"
+
+# If set, report status to this address. (Uses report.php from github.com/spetzreborn/get_env)
+reportUrl=""
+"
 
 	CONFFILEVARIBLES=$(echo "$CONFFILECONTENT" | egrep -c '^[^#]')
 }
