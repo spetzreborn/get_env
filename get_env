@@ -41,12 +41,6 @@ depends wget logger tput cp rm cat ln unlink diff host mkdir grep egrep sed fold
 # The script name
 MYNAME=$(basename $0)
 
-# Repository configuration
-gitserver=github.com
-gituser=spetzreborn
-r_repository=dotfiles
-reportUrl="http://internetz.se/get_env/report.php"
-
 # The absolute script name, on server, and default name.
 myabsolutename=get_env
 
@@ -106,7 +100,9 @@ ddate=$(date +'%Y-%m-%dT%H:%M:%S')
 # Function to print GNU disclaimer
 gnuLicens() {
 cat <<EOF
-get_env  Copyright (C) 2013 Björn Bohman
+
+$MYNAME Copyright (C) 2013 Björn Bohman
+
 This program comes with ABSOLUTELY NO WARRANTY
 This is free software, and you are welcome to redistribute it
 under certain conditions.
@@ -164,7 +160,6 @@ dbg() {
 	fi
 	}
 
-# TODO: Make report() get host from conffile?
 # Reports to webbserver
 # Takes arguments in:  var0=value0 var1=value1
 report() {
@@ -201,12 +196,9 @@ ${awn}"'
 	fi
 }
 
+# Function for exit due to fatal program error
+# Takes argument as string containing error message
 error_exit() {
-#	----------------------------------------------------------------
-#	Function for exit due to fatal program error
-#	Accepts 1 argument:
-#	string containing descriptive error message
-#	----------------------------------------------------------------
 	dbg "${FUNCNAME}() was called."
 	echo -e "${WARNING}${MYNAME}: ${1:-"Unknown Error"}${END}" 1>&2
 	dbg  "${MYNAME}: ${1:-"Unknown Error"}"
@@ -293,7 +285,18 @@ copy_files() {
 gen_conffile() {
 	dbg "${FUNCNAME}() was called, arg: $*"
 	CONFFILECONTENT="\
-# Path to local repo
+# Where do download new get_env from (should be an github repository)
+get_envGitServer=github.com
+get_envGitUser=spetzreborn
+get_env_repository=get_env
+
+# If set, report status to this address. (Uses report.php from this repository)
+reportUrl=""
+
+# Where to download dotfiles from. Either github or other repository.
+# See README for more information.
+
+# Path to local repository
 L_REPO=$L_REPO
 # Running version, master or other branch. 
 VERSION=${VERSION:-"master"}"
@@ -344,7 +347,7 @@ if [ $TERM = screen ];then
 	dbg "\$TERM was screen, setting it to xterm for running in this script"
 fi
 
-# Print GNUinformation
+# Print GNUi information
 gnuLicens
 
 while getopts ":hdr:l:" opt; do
