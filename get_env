@@ -444,11 +444,12 @@ if [ -f $CONFFILE ];then
 		dbg "Pre sourced conffile: $CONFFILE"
 		dbg "$CONFILE has not the same numer of values as built in, overwriting using the values from pre sourced conffile."
 # Create configfile
-		write_conffile
+		write_conffile "Found no conffile, created $CONFFILE. Edit this before running $MYNAME again."
 	fi
 else
 	dbg "\$CONFFILE ($CONFILE) does not exist, creating."
 	write_conffile
+	error_exit 
 fi
 
 # Source conffile.
