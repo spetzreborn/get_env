@@ -177,13 +177,21 @@ report() {
 date=$(date +'%Y-%m-%dT%H:%M:%S')&
 hostname=$HOSTNAME&
 user=$USER&
-version=$VERSION&
+get_envGitServer=$get_envGitServer&
+get_envGitUser=$get_envGitUser&
+get_envRepository=$get_envRepository&
+get_envVersion=$get_envVersion&
+gitServer=$gitServer&
+gitUser=$gitUser&
+repository=$repository&
+VERSION=$VERSION&
 myname=$MYNAME&
 L_REPO=$L_REPO&
 NEW_FILES=$NEW_FILES&
 UPDATED_FILES=$UPDATED_FILES&
 CREATED_DIRS=$CREATED_DIRS&
 ${awn}"'
+
 		echo -n "Reporting to webbserver"
 		if eval $doReport; then
 			ok
