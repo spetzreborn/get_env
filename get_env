@@ -117,6 +117,8 @@ $MYNAME Copyright (C) 2013 Björn Bohman
     along with this program.  If not, see [http://www.gnu.org/licenses/].
 
 For more information see: https://github.com/spetzreborn/get_env
+
+
 EOF
 }
 
@@ -376,6 +378,7 @@ fi
 
 # Print GNUi information
 gnuLicens
+bar
 
 while getopts ":hdr:l:" opt; do
 	case $opt in
@@ -456,7 +459,7 @@ if [ -f $CONFFILE ];then
 		error_exit "No read or write permissions for $CONFFILE"
 	fi
 # Sanitize conffile so that only '^[A-Z_]+=[A-Za-z0-9/_~.]+$' and '^#' line exists. TODO: Only variables that we want?
-	if BadContent=$(egrep -v -e '^[A-Z_]+=[A-Za-z0-9/_~.]+$' -e '^#' $CONFFILE);then
+	if BadContent=$(egrep -v -e '^[A-Za-z_.]+=[A-Za-z0-9/_~.]+$' -e '^#' $CONFFILE);then
 		dbg "$CONFFILE is not sanitized: $BadContent"
 		error_exit "$CONFFILE contains bad things: $BadContent"
 	fi
