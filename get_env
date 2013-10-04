@@ -217,7 +217,7 @@ ${awn}"'
 # Function for exit due to fatal program error
 # Takes argument as string containing error message
 error_exit() {
-	dbg "${FUNCNAME}() was called."
+	dbg "${FUNCNAME}() was called, arg: $*"
 	echo -e "${WARNING}${MYNAME}: ${1:-"Unknown Error"}${END}" 1>&2
 	dbg  "${MYNAME}: ${1:-"Unknown Error"}"
 	report "error=$1"
@@ -299,7 +299,7 @@ copy_files() {
 	done
 }
 
-# Number of variables that is supposed to be in confile, is used to check if new conffile will be written
+# Number of variables that is supposed to be in CONFFILE, is used to check if new conffile will be written
 gen_conffile() {
 	dbg "${FUNCNAME}() was called, arg: $*"
 	CONFFILECONTENT="\
@@ -469,14 +469,14 @@ if [ -f $CONFFILE ];then
 # Regenerate conffile, using sourced values.
 		gen_conffile
 		dbg "Pre sourced conffile: $CONFFILE"
-		dbg "$CONFILE has not the same numer of values as built in, overwriting using the values from pre sourced conffile."
+		dbg "$CONFFILE has not the same numer of values as built in, overwriting using the values from pre sourced conffile."
 # Create configfile
 		write_conffile "Found no conffile, created $CONFFILE. Edit this before running $MYNAME again."
 	fi
 else
-	dbg "\$CONFFILE ($CONFILE) does not exist, creating."
+	dbg "\$CONFFILE ($CONFFILE) does not exist, creating."
 	write_conffile
-	error_exit "Created $CONFILE, before running $MYNAME again, edit $CONFILE"
+	error_exit "Created $CONFFILE, before running $MYNAME again, edit $CONFFILE"
 fi
 
 # Source conffile.
