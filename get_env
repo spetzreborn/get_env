@@ -429,9 +429,9 @@ dbg "\$DEBUGLOG: $DEBUGLOG"
 
 # Check for internet connection
 dbg "Checking for internet connection . . ."
-INETCON=$(host $gitserver)
+INETCON=$(host google.com)
 INETERR=$?
-dbg "Checked internet connection by 'host $gitserver' answer:${INETCON}"
+dbg "Checked internet connection by 'host google.com' answer:${INETCON}"
 if [ "$INETERR" != "0" ];then
 	error_exit "No internet connection or none functional dns. Exiting"
 fi
@@ -476,7 +476,7 @@ if [ -f $CONFFILE ];then
 else
 	dbg "\$CONFFILE ($CONFILE) does not exist, creating."
 	write_conffile
-	error_exit 
+	error_exit "Created $CONFILE, before running $MYNAME again, edit $CONFILE"
 fi
 
 # Source conffile.
