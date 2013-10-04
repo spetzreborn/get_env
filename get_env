@@ -174,7 +174,7 @@ dbg() {
 # Takes arguments in:  var0=value0 var1=value1
 report() {
 	dbg "${FUNCNAME}() was called."
-	if [ -z $reportURL ];then
+	if [ -n "$reportURL" ];then
 		dbg "\$reportUrl is set, try to reporting"
 		i=0
 		args=$#
