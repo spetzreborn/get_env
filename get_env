@@ -327,7 +327,7 @@ VERSION=${VERSION:-"master"}
 L_REPO=$L_REPO
 
 # If set, report status to this address. (Uses report.php from github.com/spetzreborn/get_env)
-reportUrl=""
+#reportUrl=""
 "
 
 	CONFFILEVARIBLES=$(echo "$CONFFILECONTENT" | egrep -c '^[^#]')
@@ -459,7 +459,7 @@ if [ -f $CONFFILE ];then
 		error_exit "No read or write permissions for $CONFFILE"
 	fi
 # Sanitize conffile so that only '^[A-Z_]+=[A-Za-z0-9/_~.]+$' and '^#' line exists. TODO: Only variables that we want?
-	if BadContent=$(egrep -v -e '^[A-Za-z_.]+=[A-Za-z0-9/_~.]+$' -e '^#' $CONFFILE);then
+	if BadContent=$(egrep -v -e '^([A-Za-z_]+=[A-Za-z0-9/_~.]+)?$' -e '^#' $CONFFILE);then
 		dbg "$CONFFILE is not sanitized: $BadContent"
 		error_exit "$CONFFILE contains bad things: $BadContent"
 	fi
@@ -496,29 +496,33 @@ foldit echo ""
 foldit echo "Using $L_REPO as repo."
 foldit echo "Using version: $VERSION "
 
-# Create download and unpack dir
-DOWNLOADDIR=$(mktemp -d /tmp/${MYNAME}.XXXXXX)
-DOWNLOADEDFILE="${DOWNLOADDIR}/${r_repository}_${VERSION}.zip"
-create_dir ${DOWNLOADDIR}/unpack/
-# Download zip from github
+# Create download and unpack dir for get_env
+get_envDownloadDir=$(mktemp -d /tmp/${MYNAME}.XXXXXX)
+get_envDownloadFile="${get_envDownladDir}/${get_envRepositoryq}_${get_envVersion}.zip"
+create_dir ${get_envDownloadDir}/unpack/
+
+# Download new get_env as zip from github
 echo ""
 bar
-foldit echo -n "Downloading remote repository as zipfile."
+foldit echo -n "Downloading latest get_env from $et_envGitServer as zipfile."
 if [ X"$DEBUG" == X"" ];then
-	if wget https://${gitserver}/${gituser}/${r_repository}/archive/${VERSION}.zip -O ${DOWNLOADEDFILE} -q; then
+	if wget https://${et_envGitServer}/${get_envGitUser}/${get_envRepository}/archive/${get_envVersion}.zip -O ${get_envDownloadFile} -q; then
 		ok
-		dbg "Downloaded ${DOWNLOADEDFILE}"
+		dbg "Downloaded ${get_envDownloadFile}"
 	else
 		failed "Clould not download zipfile"
 	fi
 else
-	if wget https://${gitserver}/${gituser}/${r_repository}/archive/${VERSION}.zip -O ${DOWNLOADEDFILE}; then
+	if wget https://${et_envGitServer}/${get_envGitUser}/${get_envRepository}/archive/${get_envVersion}.zip -O ${get_envDownloadFile}; then
 		ok
-		dbg "Downloaded ${DOWNLOADEDFILE}"
+		dbg "Downloaded ${get_envDownloadFile}"
 	else
 		failed "Clould not download zipfile"
 	fi
 fi
+
+
+#TODO: continue tansversion
 
 # Unzip
 create_dir ${L_REPO}/${r_repository}/unpack
