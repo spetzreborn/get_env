@@ -465,7 +465,7 @@ if [ -f $CONFFILE ];then
 	if [ ! -w $CONFFILE ] || [ ! -r $CONFFILE ];then
 		error_exit "No read or write permissions for $CONFFILE"
 	fi
-# Sanitize conffile so that only '^[A-Z_]+=[A-Za-z0-9/_~.]+$' and '^#' line exists. TODO: Only variables that we want?
+# Sanitize conffile so that only '^([A-Za-z_]+=[A-Za-z0-9/_~.]+)?$' and '^#' line exists. TODO: Only acceptaccept  variables that we want?
 	if BadContent=$(egrep -v -e '^([A-Za-z_]+=[A-Za-z0-9/_~.]+)?$' -e '^#' $CONFFILE);then
 		dbg "$CONFFILE is not sanitized: $BadContent"
 		error_exit "$CONFFILE contains bad things: $BadContent"
