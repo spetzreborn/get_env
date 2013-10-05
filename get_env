@@ -413,7 +413,6 @@ if [ -n $DEBUG ];then
 	fi
 fi
 
-# TODO: Fix gitvariables for verbose
 dbg "I have started, read variables and functions and are on line:$LINENO"
 dbg "Variables I have: "
 dbg "\$MYNAME: $MYNAME"
@@ -421,6 +420,14 @@ dbg "\$gituser: $gituser"
 dbg "\$gitserver: $gitserver"
 dbg "\$r_repository: $r_repository"
 dbg "\$L_REPO: $L_REPO"
+dbg "\$get_envGitServer: $get_envGitServer"
+dbg "\$get_envGitUser: $get_envGitUser"
+dbg "\$get_envRepository: $get_envRepository"
+dbg "\$get_envVersion: $VERSION"
+dbg "\$gitServer: $gitServer"
+dbg "\$gitUser: $gitUser"
+dbg "\$repository: $repository"
+dbg "\$VERSION: $VERSION"
 # Call dbg() for all values in array $FILES2COPY
 i=0
 for array in "${FILES2COPY[@]}";do
