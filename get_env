@@ -480,7 +480,7 @@ if [ -f $CONFFILE ];then
 		gen_conffile
 		dbg "Pre sourced conffile: $CONFFILE"
 		dbg "$CONFFILE has not the same numer of values as built in, overwriting using the values from pre sourced conffile."
-# Create configfile
+# Create conffile
 		write_conffile "Found no conffile, created $CONFFILE. Edit this before running $MYNAME again."
 	fi
 else
@@ -511,25 +511,25 @@ create_dir ${get_envDownloadDir}/unpack/
 # Download new get_env as zip from github
 echo ""
 bar
-foldit echo -n "Downloading latest get_env from $et_envGitServer as zipfile."
+foldit echo -n "Downloading latest get_env from $get_envGitServer as zipfile."
 if [ X"$DEBUG" == X"" ];then
-	if wget https://${et_envGitServer}/${get_envGitUser}/${get_envRepository}/archive/${get_envVersion}.zip -O ${get_envDownloadFile} -q; then
+	if wget https://${get_envGitServer}/${get_envGitUser}/${get_envRepository}/archive/${get_envVersion}.zip -O ${get_envDownloadFile} -q; then
 		ok
 		dbg "Downloaded ${get_envDownloadFile}"
 	else
-		failed "Clould not download zipfile"
+		failed "Could not download zipfile"
 	fi
 else
-	if wget https://${et_envGitServer}/${get_envGitUser}/${get_envRepository}/archive/${get_envVersion}.zip -O ${get_envDownloadFile}; then
+	if wget https://${get_envGitServer}/${get_envGitUser}/${get_envRepository}/archive/${get_envVersion}.zip -O ${get_envDownloadFile}; then
 		ok
 		dbg "Downloaded ${get_envDownloadFile}"
 	else
-		failed "Clould not download zipfile"
+		failed "Could not download zipfile"
 	fi
 fi
 
 
-#TODO: continue tansversion
+#TODO: continue transversion
 
 # Unzip
 create_dir ${L_REPO}/${r_repository}/unpack
