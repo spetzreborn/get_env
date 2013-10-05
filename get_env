@@ -533,18 +533,18 @@ fi
 
 # Unzip
 create_dir ${L_REPO}/${r_repository}/unpack
-foldit echo -n "Unziping"
+foldit echo -n "Unzipping"
 if [ X"$DEBUG" == X"" ];then
 	if unzip -o -qq ${DOWNLOADEDFILE} -d ${L_REPO}/${r_repository}/unpack; then
 		ok
-		dbg "Unziped file"
+		dbg "Unzipped file"
 	else
 		failed "Failed to unzip"
 	fi
 else
 	if unzip -o ${DOWNLOADEDFILE} -d ${L_REPO}/${r_repository}/unpack; then
 		ok
-		dbg "Unziped file"
+		dbg "Unzipped file"
 	else
 		failed "Failed to unzip"
 	fi
