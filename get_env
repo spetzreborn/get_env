@@ -511,7 +511,7 @@ foldit echo "Using version: $VERSION "
 
 # Create download and unpack dir for get_env
 get_envDownloadDir=$(mktemp -d /tmp/${MYNAME}.XXXXXX)
-get_envDownloadFile="${get_envDownladDir}/${get_envRepositoryq}_${get_envVersion}.zip"
+get_envDownloadFile="${get_envDownloadDir}/${get_envRepositoryq}_${get_envVersion}.zip"
 create_dir ${get_envDownloadDir}/unpack/
 
 # Download new get_env as zip from github
