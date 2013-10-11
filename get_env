@@ -583,27 +583,25 @@ foldit echo "Using version: $VERSION "
 downloadDir=$(mktemp -d /tmp/${MYNAME}.XXXXXX)
 create_dir $L_REPO
 
-# Download new get_env as zip from github
+# Download new get_env and repository as zip from github
 echo ""
 bar
-
 
 downloadAndUnzip $get_envGitServer $get_envGitUser $get_envRepository $get_envVersion
 downloadAndUnzip $gitServer $gitUser $repository $VERSION
 
 
-exit 0
-
 # Test if there was a change in get_env - and is needed to be run again.
 # Need absolute name in from file, so it truly can make variable name.
 # This diff dose not care about comments.
-if ! diff -q -I '^# .*'  ~/$MYNAME ${L_REPO}/${r_repository}/${myabsolutename} >/dev/null 2>&1; then
+get_envDownloaded="${L_REPO}/${get_envRepository}/${get_envRepository}-${get_envVersion}/${myabsolutename}"
+if ! diff -q -I '^# .*'  ~/$MYNAME ${get_envDownloaded} >/dev/null 2>&1; then
 	echo -e "" 
 	foldit echo -e '${INFO}Found newer	 $MYNAME ${END}'
 	foldit echo -en "Replacing	   $(echo ~)/${MYNAME}"
-	if cp ${L_REPO}/${r_repository}/${myabsolutename} ~/${MYNAME}; then
+	if cp ${get_envDownloaded} ~/${MYNAME}; then
 		ok
-		dbg "Replaced ${MYNAME} with newer succesfully."
+		dbg "Replaced ${MYNAME} with newer successfully."
 	else
 		failed "Could not copy the file ${myabsolutename} to ${MYNAME}"
 	fi
