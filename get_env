@@ -291,14 +291,14 @@ downloadAndUnzip() {
 	foldit echo -n "Moving files to $L_REPO"
 	# rsync to $L_REPO
 	if [ X"$DEBUG" == X"" ];then
-		if  rsync -aq ${outDir}/${repository}-${branch} ${L_REPO}/${repository}/; then
+		if  rsync -aq --delete ${outDir}/${repository}-${branch} ${L_REPO}/${repository}/; then
 			ok
 			dbg "rsync to $L_REPO"
 		else
 			failed "Failed to rsync"
 		fi
 	else
-		if  rsync -a ${outDir}/${repository}-${branch} ${L_REPO}/${repository}/; then
+		if  rsync -a --delete ${outDir}/${repository}-${branch} ${L_REPO}/${repository}/; then
 			ok
 			dbg "rsync to $L_REPO"
 		else
@@ -464,13 +464,14 @@ showVariables() {
 
 cleanup() {
 # Remove downloaded files and temporary directories
-rm -rf ${downloadDir}
-dbg "cat $FAILEDFILE: " $(cat $FAILEDFILE)
-
-if [ -f $FAILEDFILE ];then
-	rm $FAILEDFILE 
-	dbg "Removed $FAILEDFILE"
-fi
+	dbg "${FUNCNAME}() was called, arg: $*"
+	rm -rf ${downloadDir}
+	dbg "cat $FAILEDFILE: " $(cat $FAILEDFILE)
+	
+	if [ -f $FAILEDFILE ];then
+		rm $FAILEDFILE 
+		dbg "Removed $FAILEDFILE"
+	fi
 }
 
 ### End of functions
