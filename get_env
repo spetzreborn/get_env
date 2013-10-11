@@ -461,6 +461,18 @@ showVariables() {
 	dbg "\$DEBUG:$DEBUG"
 	dbg "\$DEBUGLOG: $DEBUGLOG"
 }
+
+cleanup() {
+# Remove downloaded files and temporary directories
+rm -rf ${downloadDir}
+dbg "cat $FAILEDFILE: " $(cat $FAILEDFILE)
+
+if [ -f $FAILEDFILE ];then
+	rm $FAILEDFILE 
+	dbg "Removed $FAILEDFILE"
+fi
+}
+
 ### End of functions
 
 
@@ -614,8 +626,10 @@ if ! diff -q -I '^# .*'  ~/$MYNAME ${get_envDownloaded} >/dev/null 2>&1; then
 # Makes next script start with debug if this instance was started with debug.
 	if [ X"$DEBUG" == X"1" ];then
 		if [ -f $DEBUGLOG ];then
+			cleanup
 			exec ~/${MYNAME} -r "$L_REPO" -d -l "$DEBUGLOG"
 		else
+			cleanup
 			exec ~/${MYNAME} -r "$L_REPO" -d
 		fi
 	else
@@ -694,15 +708,7 @@ fi
 report
 
 # Cleanup
-# Remove downloaded zipfile
-# TODO: Make function and delete temporary directories
-rm -rf ${downloadDir}
-dbg "cat $FAILEDFILE: " $(cat $FAILEDFILE)
-
-if [ -f $FAILEDFILE ];then
-	rm $FAILEDFILE 
-	dbg "Removed $FAILEDFILE"
-fi
+cleanup
 
 # End
 dbg "End of script, debuglog saved in $DEBUGLOG"
