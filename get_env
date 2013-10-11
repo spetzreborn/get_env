@@ -546,7 +546,7 @@ downloadAndUnzip() {
 	else
 		if wget ${inFile} -O ${outDir}/${outFile}; then
 			ok
-			dbg "Downloaded ${get_envDownloadFile}"
+			dbg "Downloaded ${outFile}"
 		else
 			failed "Could not download zipfile"
 		fi
@@ -588,7 +588,6 @@ downloadAndUnzip() {
 
 }
 
-get_envDownloadFile="${downloadDir}/${get_envRepository}_${get_envVersion}.zip"
 downloadAndUnzip $get_envGitServer $get_envGitUser $get_envRepository $get_envVersion
 downloadAndUnzip $gitServer $gitUser $repository $VERSION
 
