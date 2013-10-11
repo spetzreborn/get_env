@@ -240,6 +240,73 @@ EOF
 	exit 0
 }
 
+# Function to download zip from github.
+# Arg: server user repository branch filePath
+downloadAndUnzip() {
+	dbg "${FUNCNAME}() was called, arg: $*"
+	local server=$1
+	local user=$2
+	local repository=$3
+	local branch=$4
+	local inFile="https://${server}/${user}/${repository}/archive/${branch}.zip"
+	local outDir="${downloadDir}/${repository}"
+	local outFile="${repository}-${branch}.zip"
+	create_dir ${downloadDir}/${repository}
+	foldit echo -n "Downloading ${inFile}"
+
+	# Download
+	if [ X"$DEBUG" == X"" ];then
+		if wget ${inFile} -O ${outDir}/${outFile} -q; then
+			ok
+			dbg "Downloaded ${outFile}"
+
+		else
+			failed "Could not download zipfile"
+		fi
+	else
+		if wget ${inFile} -O ${outDir}/${outFile}; then
+			ok
+			dbg "Downloaded ${outFile}"
+		else
+			failed "Could not download zipfile"
+		fi
+	fi
+	foldit echo -n "Unzipping ${outFile}"
+	# Unzip
+	if [ X"$DEBUG" == X"" ];then
+		if unzip -o -qq ${outDir}/${outFile} -d ${outDir}; then
+			ok
+			dbg "Unzipped file"
+		else
+			failed "Failed to unzip"
+		fi
+	else
+		if unzip -o ${outDir}/${outFile} -d ${outDir}; then
+			ok
+			dbg "Unzipped file"
+		else
+			failed "Failed to unzip"
+		fi
+	fi
+	foldit echo -n "Moving files to $L_REPO"
+	# rsync to $L_REPO
+	if [ X"$DEBUG" == X"" ];then
+		if  rsync -aq ${outDir}/${repository}-${branch} ${L_REPO}/${repository}/; then
+			ok
+			dbg "rsync to $L_REPO"
+		else
+			failed "Failed to rsync"
+		fi
+	else
+		if  rsync -a ${outDir}/${repository}-${branch} ${L_REPO}/${repository}/; then
+			ok
+			dbg "rsync to $L_REPO"
+		else
+			failed "Failed to rsync"
+		fi
+	fi
+
+}
 
 # Files that shall be copied
 # Arg: dir_in_repo dir_to_be_moved_to _files_
@@ -520,73 +587,6 @@ create_dir $L_REPO
 echo ""
 bar
 
-# Function to download zip from github.
-# Arg: server user repository branch filePath
-downloadAndUnzip() {
-	dbg "${FUNCNAME}() was called, arg: $*"
-	local server=$1
-	local user=$2
-	local repository=$3
-	local branch=$4
-	local inFile="https://${server}/${user}/${repository}/archive/${branch}.zip"
-	local outDir="${downloadDir}/${repository}"
-	local outFile="${repository}-${branch}.zip"
-	create_dir ${downloadDir}/${repository}
-	foldit echo -n "Downloading ${inFile}"
-
-	# Download
-	if [ X"$DEBUG" == X"" ];then
-		if wget ${inFile} -O ${outDir}/${outFile} -q; then
-			ok
-			dbg "Downloaded ${outFile}"
-
-		else
-			failed "Could not download zipfile"
-		fi
-	else
-		if wget ${inFile} -O ${outDir}/${outFile}; then
-			ok
-			dbg "Downloaded ${outFile}"
-		else
-			failed "Could not download zipfile"
-		fi
-	fi
-	foldit echo -n "Unzipping ${outFile}"
-	# Unzip
-	if [ X"$DEBUG" == X"" ];then
-		if unzip -o -qq ${outDir}/${outFile} -d ${outDir}; then
-			ok
-			dbg "Unzipped file"
-		else
-			failed "Failed to unzip"
-		fi
-	else
-		if unzip -o ${outDir}/${outFile} -d ${outDir}; then
-			ok
-			dbg "Unzipped file"
-		else
-			failed "Failed to unzip"
-		fi
-	fi
-	foldit echo -n "Moving files to $L_REPO"
-	# rsync to $L_REPO
-	if [ X"$DEBUG" == X"" ];then
-		if  rsync -aq ${outDir}/${repository}-${branch} ${L_REPO}/${repository}/; then
-			ok
-			dbg "rsync to $L_REPO"
-		else
-			failed "Failed to rsync"
-		fi
-	else
-		if  rsync -a ${outDir}/${repository}-${branch} ${L_REPO}/${repository}/; then
-			ok
-			dbg "rsync to $L_REPO"
-		else
-			failed "Failed to rsync"
-		fi
-	fi
-
-}
 
 downloadAndUnzip $get_envGitServer $get_envGitUser $get_envRepository $get_envVersion
 downloadAndUnzip $gitServer $gitUser $repository $VERSION
