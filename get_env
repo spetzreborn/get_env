@@ -33,7 +33,7 @@ depends() {
 	done
 }
 
-depends wget logger tput cp rm cat ln unlink diff host mkdir grep egrep sed fold unzip
+depends wget logger tput cp rm cat ln unlink diff host mkdir grep egrep sed fold unzip rsync
 
 
 # Variables in capital are localstuffs, the lowercase regards the remote server
@@ -250,6 +250,8 @@ copy_files() {
 	to_dir=$1
 	shift
 # Test if $to_dir exists
+# TODO: make create_dir able to silently create dirs when asked. (arguments)
+# TODO: Change to generic camelCase
 	create_dir $to_dir
 
 	for file in $*
@@ -402,7 +404,7 @@ if [ $TERM = screen ];then
 	dbg "\$TERM was screen, setting it to xterm for running in this script"
 fi
 
-# Print GNUi information
+# Print GNU information
 gnuLicens
 bar
 
@@ -509,59 +511,93 @@ foldit echo ""
 foldit echo "Using $L_REPO as repo."
 foldit echo "Using version: $VERSION "
 
-# Create download and unpack dir for get_env
-get_envDownloadDir=$(mktemp -d /tmp/${MYNAME}.XXXXXX)
-get_envDownloadFile="${get_envDownloadDir}/${get_envRepositoryq}_${get_envVersion}.zip"
-create_dir ${get_envDownloadDir}/unpack/
+# TODO: Move to respective places, eg downloadDir to varables
+# Create download and $L_REPO dirs
+downloadDir=$(mktemp -d /tmp/${MYNAME}.XXXXXX)
+create_dir $L_REPO
 
 # Download new get_env as zip from github
 echo ""
 bar
-foldit echo -n "Downloading latest get_env from $get_envGitServer as zipfile."
-if [ X"$DEBUG" == X"" ];then
-	if wget https://${get_envGitServer}/${get_envGitUser}/${get_envRepository}/archive/${get_envVersion}.zip -O ${get_envDownloadFile} -q; then
-		ok
-		dbg "Downloaded ${get_envDownloadFile}"
+
+# Function to download zip from github.
+# Arg: server user repository branch filePath
+downloadAndUnzip() {
+	dbg "${FUNCNAME}() was called, arg: $*"
+	local server=$1
+	local user=$2
+	local repository=$3
+	local branch=$4
+	local inFile="https://${server}/${user}/${repository}/archive/${branch}.zip"
+	local outDir="${downloadDir}/${repository}"
+	local outFile="${repository}-${branch}.zip"
+	create_dir ${downloadDir}/${repository}
+	foldit echo -n "Downloading ${inFile}"
+
+	# Download
+	if [ X"$DEBUG" == X"" ];then
+		if wget ${inFile} -O ${outDir}/${outFile} -q; then
+			ok
+			dbg "Downloaded ${outFile}"
+
+		else
+			failed "Could not download zipfile"
+		fi
 	else
-		failed "Could not download zipfile"
+		if wget ${inFile} -O ${outDir}/${outFile}; then
+			ok
+			dbg "Downloaded ${get_envDownloadFile}"
+		else
+			failed "Could not download zipfile"
+		fi
 	fi
-else
-	if wget https://${get_envGitServer}/${get_envGitUser}/${get_envRepository}/archive/${get_envVersion}.zip -O ${get_envDownloadFile}; then
-		ok
-		dbg "Downloaded ${get_envDownloadFile}"
+	foldit echo -n "Unzipping ${outFile}"
+	# Unzip
+	if [ X"$DEBUG" == X"" ];then
+		if unzip -o -qq ${outDir}/${outFile} -d ${outDir}; then
+			ok
+			dbg "Unzipped file"
+		else
+			failed "Failed to unzip"
+		fi
 	else
-		failed "Could not download zipfile"
+		if unzip -o ${outDir}/${outFile} -d ${outDir}; then
+			ok
+			dbg "Unzipped file"
+		else
+			failed "Failed to unzip"
+		fi
 	fi
-fi
+	foldit echo -n "Moving files to $L_REPO"
+	# rsync to $L_REPO
+	if [ X"$DEBUG" == X"" ];then
+		if  rsync -aq ${outDir}/${repository}-${branch} ${L_REPO}/${repository}/; then
+			ok
+			dbg "rsync to $L_REPO"
+		else
+			failed "Failed to rsync"
+		fi
+	else
+		if  rsync -a ${outDir}/${repository}-${branch} ${L_REPO}/${repository}/; then
+			ok
+			dbg "rsync to $L_REPO"
+		else
+			failed "Failed to rsync"
+		fi
+	fi
+
+}
+
+get_envDownloadFile="${downloadDir}/${get_envRepository}_${get_envVersion}.zip"
+downloadAndUnzip $get_envGitServer $get_envGitUser $get_envRepository $get_envVersion
+downloadAndUnzip $gitServer $gitUser $repository $VERSION
 
 
-#TODO: continue transversion
-
-# Unzip
-create_dir ${L_REPO}/${r_repository}/unpack
-foldit echo -n "Unzipping"
-if [ X"$DEBUG" == X"" ];then
-	if unzip -o -qq ${DOWNLOADEDFILE} -d ${L_REPO}/${r_repository}/unpack; then
-		ok
-		dbg "Unzipped file"
-	else
-		failed "Failed to unzip"
-	fi
-else
-	if unzip -o ${DOWNLOADEDFILE} -d ${L_REPO}/${r_repository}/unpack; then
-		ok
-		dbg "Unzipped file"
-	else
-		failed "Failed to unzip"
-	fi
-fi
-
-# Copy all files from unpack
-rsync -a ${L_REPO}/${r_repository}/unpack/${r_repository}-${VERSION}/ ${L_REPO}/${r_repository}
+exit 0
 
 # Test if there was a change in get_env - and is needed to be run again.
 # Need absolute name in from file, so it truly can make variable name.
-# This diff dose not care about svn metadatalines or comments.
+# This diff dose not care about comments.
 if ! diff -q -I '^# .*'  ~/$MYNAME ${L_REPO}/${r_repository}/${myabsolutename} >/dev/null 2>&1; then
 	echo -e "" 
 	foldit echo -e '${INFO}Found newer	 $MYNAME ${END}'
@@ -663,8 +699,8 @@ report
 
 # Cleanup
 # Remove downloaded zipfile
-rm ${DOWNLOADEDFILE}
-rm -rf ${DOWNLOADDIR}
+# TODO: Make function and delete temporary dirs
+rm -rf ${downloadDir}
 dbg "cat $FAILEDFILE: " $(cat $FAILEDFILE)
 
 if [ -f $FAILEDFILE ];then
