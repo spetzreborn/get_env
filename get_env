@@ -317,8 +317,6 @@ copy_files() {
 	to_dir=$1
 	shift
 # Test if $to_dir exists
-# TODO: make create_dir able to silently create directories when asked. (arguments)
-# TODO: Change to generic camelCase
 	create_dir $to_dir
 
 	for file in $*
@@ -420,6 +418,8 @@ write_conffile() {
 	fi
 }
 
+# TODO: make create_dir able to silently create directories when asked. (arguments)
+# TODO: Change to generic camelCase
 # Creates a directory
 create_dir() {
 	dbg "${FUNCNAME}() was called, arg: $*"
