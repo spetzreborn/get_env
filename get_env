@@ -638,10 +638,9 @@ if ! diff -q -I '^# .*'  ~/$MYNAME ${get_envDownloaded} >/dev/null 2>&1; then
 	fi
 fi
 
+# TODO: Move this to conffile
 # Creates directories
 create_dir $HOME/sshfs
-# Makes a directory for local files in $L_REPO/local
-create_dir $L_REPO/local 
 
 
 # Call copy_files() for all values in array $FILES2COPY
