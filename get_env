@@ -312,9 +312,9 @@ downloadAndUnzip() {
 # Arg: dir_in_repo dir_to_be_moved_to _files_
 copy_files() {
 	dbg "${FUNCNAME}() was called, arg: $*"
-	from_dir=$1
+	local from_dir=$1
 	shift
-	to_dir=$1
+	local to_dir=$1
 	shift
 # Test if $to_dir exists
 	create_dir $to_dir
@@ -323,10 +323,11 @@ copy_files() {
 	do
 # If the destfile exist ...
 		if [ -f ${to_dir}/${file} ]; then 
-# .. diff it with the source file .. This magic diff ignore the two svn meta information lines, or comments. Both .vimrc and bash comments.
-			if ! diff -q -I '^# .*' -I '^" .*' $L_REPO/${r_repository}/$from_dir/$file ${to_dir}/$file >/dev/null 2>&1; then
+# .. diff it with the source file .. This magic diff ignores comments. Both .vimrc and bash comments.
+			if ! diff -q -I '^# .*' -I '^" .*' ${L_REPO}/${gitRepository}/${gitRepository}-${VERSION}/${from_dir}/${file} ${to_dir}/${file} >/dev/null 2>&1; then
 # .. And if it is not the same, copy to backup file:
 				foldit echo -n "Found difference in ${to_dir}/${file}, making backup"
+# TODO: Backup to $L_REPO instead
 				if [ $(echo $file | cut -c1) == "." ];then
 					if cp ${to_dir}/${file} ${to_dir}/${file}.old; then
 						ok
@@ -344,23 +345,23 @@ copy_files() {
 				fi
 # .. Copy the new file
 				foldit echo -n "Copy new ${to_dir}/$file"
-				if cp $L_REPO/${r_repository}/$from_dir/$file ${to_dir}/$file; then
+				if cp ${L_REPO}/${gitRepository}/${gitRepository}-${VERSION}/${from_dir}/${file} ${to_dir}/${file}; then
 					ok
-					dbg "Updated file: ${to_dir}/$file copied ok"
-					UPDATED_FILES="${UPDATED_FILES}$file "
+					dbg "Updated file: ${to_dir}/${file} copied ok"
+					UPDATED_FILES="${UPDATED_FILES}${file} "
 				else
 					failed
 				fi
 			else
-				dbg "$file are up to date"
+				dbg "${file} are up to date"
 			fi
 # If the to_file dose not exist, just copy it.
 		else
-			foldit echo -n "Copy new ${to_dir}/$file"
-			if cp $L_REPO/${r_repository}/$from_dir/$file ${to_dir}/$file >/dev/null 2>&1; then
+			foldit echo -n "Copy new ${to_dir}/${file}"
+			if cp ${L_REPO}/${gitRepository}/${gitRepository}-${VERSION}/${from_dir}/${file} ${to_dir}/${file} >/dev/null 2>&1; then
 				ok
-				dbg "New file: ${to_dir}/$file copied ok"
-				NEW_FILES="${NEW_FILES}$file "
+				dbg "New file: ${to_dir}/${file} copied ok"
+				NEW_FILES="${NEW_FILES}${file} "
 			else
 				failed
 			fi
