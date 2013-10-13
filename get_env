@@ -324,7 +324,7 @@ copy_files() {
 # If the destfile exist ...
 		if [ -f ${to_dir}/${file} ]; then 
 # .. diff it with the source file .. This magic diff ignores comments. Both .vimrc and bash comments.
-			if ! diff -q -I '^# .*' -I '^" .*' ${L_REPO}/${gitRepository}/${gitRepository}-${VERSION}/${from_dir}/${file} ${to_dir}/${file} >/dev/null 2>&1; then
+			if ! diff -q -I '^# .*' -I '^" .*' ${L_REPO}/${repository}/${repository}-${VERSION}/${from_dir}/${file} ${to_dir}/${file} >/dev/null 2>&1; then
 # .. And if it is not the same, copy to backup file:
 				foldit echo -n "Found difference in ${to_dir}/${file}, making backup"
 # TODO: Backup to $L_REPO instead
@@ -345,7 +345,7 @@ copy_files() {
 				fi
 # .. Copy the new file
 				foldit echo -n "Copy new ${to_dir}/$file"
-				if cp ${L_REPO}/${gitRepository}/${gitRepository}-${VERSION}/${from_dir}/${file} ${to_dir}/${file}; then
+				if cp ${L_REPO}/${repository}/${repository}-${VERSION}/${from_dir}/${file} ${to_dir}/${file}; then
 					ok
 					dbg "Updated file: ${to_dir}/${file} copied ok"
 					UPDATED_FILES="${UPDATED_FILES}${file} "
@@ -358,7 +358,7 @@ copy_files() {
 # If the to_file dose not exist, just copy it.
 		else
 			foldit echo -n "Copy new ${to_dir}/${file}"
-			if cp ${L_REPO}/${gitRepository}/${gitRepository}-${VERSION}/${from_dir}/${file} ${to_dir}/${file} >/dev/null 2>&1; then
+			if cp ${L_REPO}/${repository}/${repository}-${VERSION}/${from_dir}/${file} ${to_dir}/${file} >/dev/null 2>&1; then
 				ok
 				dbg "New file: ${to_dir}/${file} copied ok"
 				NEW_FILES="${NEW_FILES}${file} "
