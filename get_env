@@ -210,6 +210,7 @@ cat <<EOF
 	-r repo  Dir to create and download repo to, default same name as my filename ($MYNAME)
 	-d	 Debug - shows whats happening and saves debuglog in the form /tmp/$MYNAME-10-21T10:42:37.XXXXXXXXX
 	-l	If debug is used, use this file as debuglog.
+	-u  Do not update ${MYNAME} even if newer is found
 
 EOF
 	exit 0
@@ -472,7 +473,7 @@ fi
 gnuLicens
 bar
 
-while getopts ":hdr:l:" opt; do
+while getopts ":hudr:l:" opt; do
 	case $opt in
 		r)	
 		L_REPO=$(readlink -f $OPTARG)
@@ -483,6 +484,9 @@ while getopts ":hdr:l:" opt; do
 		;;
 		l)
 		DEBUGLOG=$(readlink -f $OPTARG)
+		;;
+		u)
+		noGet_envUpdate="YES"
 		;;
 		h) 
 		helpmeny 
@@ -595,31 +599,35 @@ get_envDownloaded="${L_REPO}/${get_envRepository}/${get_envRepository}-${get_env
 if ! diff -q -I '^# .*'  ~/$MYNAME ${get_envDownloaded} >/dev/null 2>&1; then
 	echo -e "" 
 	foldit echo -e '${INFO}Found newer	 $MYNAME ${END}'
-	foldit echo -en "Replacing	   $(echo ~)/${MYNAME}"
-	if cp ${get_envDownloaded} ~/${MYNAME}; then
-		ok
-		dbg "Replaced ${MYNAME} with newer successfully."
+	if [ -n $noGet_envUpdate ]; then
+		foldit echo "Do not run newer ${MYNAME}"
 	else
-		failed "Could not copy the file ${myabsolutename} to ${MYNAME}"
-	fi
-	foldit echo -e '${INFO}Executing new $(echo ~)/${MYNAME}${END}'
-	bar
-	echo
-	echo 
-	stars
-	echo 
-	echo
-# Makes next script start with debug if this instance was started with debug.
-	if [ X"$DEBUG" == X"1" ];then
-		if [ -f $DEBUGLOG ];then
-			cleanup
-			exec ~/${MYNAME} -r "$L_REPO" -d -l "$DEBUGLOG"
+		foldit echo -en "Replacing	   $(echo ~)/${MYNAME}"
+		if cp ${get_envDownloaded} ~/${MYNAME}; then
+			ok
+			dbg "Replaced ${MYNAME} with newer successfully."
 		else
-			cleanup
-			exec ~/${MYNAME} -r "$L_REPO" -d
+			failed "Could not copy the file ${myabsolutename} to ${MYNAME}"
 		fi
-	else
-		exec ~/${MYNAME} -r "$L_REPO"
+		foldit echo -e '${INFO}Executing new $(echo ~)/${MYNAME}${END}'
+		bar
+		echo
+		echo 
+		stars
+		echo 
+		echo
+	# Makes next script start with debug if this instance was started with debug.
+		if [ X"$DEBUG" == X"1" ];then
+			if [ -f $DEBUGLOG ];then
+				cleanup
+				exec ~/${MYNAME} -r "$L_REPO" -d -l "$DEBUGLOG"
+			else
+				cleanup
+				exec ~/${MYNAME} -r "$L_REPO" -d
+			fi
+		else
+			exec ~/${MYNAME} -r "$L_REPO"
+		fi
 	fi
 fi
 
