@@ -375,12 +375,11 @@ L_REPO=$L_REPO
 
 # Files to be copied to various dirs. Work like:
 # [dir_the_file_lives_in_in_repo] [dir_the_file_shuld_go_to] [files]
-FILES2COPY[0]="HOME $HOME .testrc"
+FILES2COPY[0]='HOME $HOME .testrc'
 
 # This is an more realistic example
 # Files to be copied from [HOME] to [$HOME]
-# FILES2COPY[0]="HOME $HOME .bashrc .profile .vimrc .gitconfig"
-
+# FILES2COPY[0]='HOME $HOME .bashrc .profile .vimrc .gitconfig'
 "
 
 	CONFFILEVARIBLES=$(echo "$CONFFILECONTENT" | egrep -c '^[^#]')
@@ -537,11 +536,11 @@ if [ -f $CONFFILE ];then
 	if [ ! -w $CONFFILE ] || [ ! -r $CONFFILE ];then
 		error_exit "No read or write permissions for $CONFFILE"
 	fi
-# Sanitize conffile so that only '^([A-Za-z_]+=[A-Za-z0-9/_~.]+)?$' and '^#' line exists. TODO: Only accepted  variables that we want?
-	if BadContent=$(egrep -v -e '^([A-Za-z_]+=[A-Za-z0-9/_~.]+)?$' -e '^#' $CONFFILE);then
-		dbg "$CONFFILE is not sanitized: $BadContent"
-		error_exit "$CONFFILE contains bad things: $BadContent"
-	fi
+# Sanitize conffile so that only sane line exists. TODO: Only accepted  variables that we want?
+#	if BadContent=$(egrep -v -e '^([A-Za-z_\[\]]+=[A-Za-z0-9/_~. ]+)?$' -e '^#' $CONFFILE);then 
+#		dbg "$CONFFILE is not sanitized: $BadContent"
+#		error_exit "$CONFFILE contains bad things: $BadContent"
+#	fi
 # Matches variables in default conffile and conffile. Only counts VARIABLE_NAME=variable. Variables must be set
 	if [ "$(egrep -c '^[^#]' $CONFFILE)" -eq "$CONFFILEVARIBLES" ]; then
 		dbg "Conffile ($CONFFILE) ok, using it."
