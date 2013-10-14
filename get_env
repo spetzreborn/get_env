@@ -541,7 +541,7 @@ fi
 
 # If argument -r was not given, set default $L_REPO to absolute path
 if [ X"$L_REPO" == X"" ]; then
-	L_REPO="$(echo ~/${MYNAME})"
+	L_REPO="$(echo ~/.${MYNAME})"
 	dbg 'Setting defult $L_REPO to absolut path: ' "$L_REPO"
 fi
 
