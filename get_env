@@ -449,6 +449,49 @@ showVariables() {
 	dbg "\$DEBUGLOG: $DEBUGLOG"
 }
 
+# Test if there was a change in get_env - and is needed to be run again.
+# Need absolute name in from file, so it truly can make variable name.
+# This diff dose not care about comments.
+get_envDiffAndRestart() {
+	dbg "${FUNCNAME}() was called."
+	get_envDownloaded="${L_REPO}/${get_envRepository}/${get_envRepository}-${get_envVersion}/${myabsolutename}"
+	if ! diff -q -I '^# .*'  ~/$MYNAME ${get_envDownloaded} >/dev/null 2>&1; then
+		echo -e "" 
+		foldit echo -e '${INFO}Found newer	 $MYNAME ${END}'
+		if [ -n "$noGet_envUpdate" ]; then
+			dbg "\$noGet_envUpdate is set, dont replace or run newer" 
+			foldit echo "Do not run newer ${MYNAME}"
+		else
+			foldit echo -en "Replacing	   $(echo ~)/${MYNAME}"
+			if cp ${get_envDownloaded} ~/${MYNAME}; then
+				ok
+				dbg "Replaced ${MYNAME} with newer successfully."
+			else
+				failed "Could not copy the file ${myabsolutename} to ${MYNAME}"
+			fi
+			foldit echo -e '${INFO}Executing new $(echo ~)/${MYNAME}${END}'
+			bar
+			echo
+			echo 
+			stars
+			echo 
+			echo
+		# Makes next script start with debug if this instance was started with debug.
+			if [ -n "$DEBUG" ];then
+				if [ -f "$DEBUGLOG" ];then
+					cleanup
+					exec ~/${MYNAME} -r "$L_REPO" -d -l "$DEBUGLOG"
+				else
+					cleanup
+					exec ~/${MYNAME} -r "$L_REPO" -d
+				fi
+			else
+				exec ~/${MYNAME} -r "$L_REPO"
+			fi
+		fi
+	fi
+}
+
 cleanup() {
 # Remove downloaded files and temporary directories
 	dbg "${FUNCNAME}() was called, arg: $*"
@@ -593,54 +636,16 @@ create_dir $L_REPO
 echo ""
 bar
 
+# Download latest get_env
 downloadAndUnzip $get_envGitServer $get_envGitUser $get_envRepository $get_envVersion
+# Check if downloaded get_env is newer, then replace and restart
+get_envDiffAndRestart
+# Download repository with files
 downloadAndUnzip $gitServer $gitUser $repository $VERSION
-
-
-# Test if there was a change in get_env - and is needed to be run again.
-# Need absolute name in from file, so it truly can make variable name.
-# This diff dose not care about comments.
-get_envDownloaded="${L_REPO}/${get_envRepository}/${get_envRepository}-${get_envVersion}/${myabsolutename}"
-if ! diff -q -I '^# .*'  ~/$MYNAME ${get_envDownloaded} >/dev/null 2>&1; then
-	echo -e "" 
-	foldit echo -e '${INFO}Found newer	 $MYNAME ${END}'
-	if [ -n "$noGet_envUpdate" ]; then
-		dbg "\$noGet_envUpdate is set , dont replace or run newer" 
-		foldit echo "Do not run newer ${MYNAME}"
-	else
-		foldit echo -en "Replacing	   $(echo ~)/${MYNAME}"
-		if cp ${get_envDownloaded} ~/${MYNAME}; then
-			ok
-			dbg "Replaced ${MYNAME} with newer successfully."
-		else
-			failed "Could not copy the file ${myabsolutename} to ${MYNAME}"
-		fi
-		foldit echo -e '${INFO}Executing new $(echo ~)/${MYNAME}${END}'
-		bar
-		echo
-		echo 
-		stars
-		echo 
-		echo
-	# Makes next script start with debug if this instance was started with debug.
-		if [ -n "$DEBUG" ];then
-			if [ -f "$DEBUGLOG" ];then
-				cleanup
-				exec ~/${MYNAME} -r "$L_REPO" -d -l "$DEBUGLOG"
-			else
-				cleanup
-				exec ~/${MYNAME} -r "$L_REPO" -d
-			fi
-		else
-			exec ~/${MYNAME} -r "$L_REPO"
-		fi
-	fi
-fi
 
 # TODO: Move this to conffile
 # Creates directories
 create_dir $HOME/sshfs
-
 
 # Call copy_files() for all values in array $FILES2COPY
 for array in "${FILES2COPY[@]}";do
