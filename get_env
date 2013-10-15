@@ -606,6 +606,7 @@ if ! diff -q -I '^# .*'  ~/$MYNAME ${get_envDownloaded} >/dev/null 2>&1; then
 	echo -e "" 
 	foldit echo -e '${INFO}Found newer	 $MYNAME ${END}'
 	if [ -n $noGet_envUpdate ]; then
+		dbg "\$noGet_envUpdate is set, dont replace or run newer" 
 		foldit echo "Do not run newer ${MYNAME}"
 	else
 		foldit echo -en "Replacing	   $(echo ~)/${MYNAME}"
