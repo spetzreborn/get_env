@@ -20,6 +20,8 @@
 
 # Refactorded 2013 for git
 
+# TODO: Add silent and quietmode for suppressed output, e.g when run from cron
+
 # Exit on error
 # set -e
 
@@ -541,10 +543,14 @@ if [ -f $CONFFILE ];then
 		error_exit "No read or write permissions for $CONFFILE"
 	fi
 # Sanitize conffile so that only sane line exists. TODO: Only accepted  variables that we want?
-#	if BadContent=$(egrep -v -e '^([A-Za-z_\[\]]+=[A-Za-z0-9/_~. ]+)?$' -e '^#' $CONFFILE);then 
-#		dbg "$CONFFILE is not sanitized: $BadContent"
-#		error_exit "$CONFFILE contains bad things: $BadContent"
-#	fi
+	if BadContent=$(egrep -v \
+	-e "^([A-Za-z_]+=[A-Za-z0-9/_~. ]+)?$" \
+	-e "^#" \
+	-e "^FILES2COPY[[][0-9]+[]]='[A-Za-z0-9/_~. ]+'" \
+	$CONFFILE);then 
+		dbg "$CONFFILE is not sanitized: $BadContent"
+		error_exit "$CONFFILE contains bad things: $BadContent"
+	fi
 # Matches variables in default conffile and conffile. Only counts VARIABLE_NAME=variable. Variables must be set
 	if [ "$(egrep -c '^[^#]' $CONFFILE)" -eq "$CONFFILEVARIBLES" ]; then
 		dbg "Conffile ($CONFFILE) ok, using it."
