@@ -70,6 +70,7 @@ WARNING=$RED
 
 FAILEDFILE=$(mktemp)
 DEBUG=""
+noGet_envUpdate=""
 ddate=$(date +'%Y-%m-%dT%H:%M:%S')
 
 ###  Functions
