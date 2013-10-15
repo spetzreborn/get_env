@@ -105,7 +105,7 @@ foldit() {
 	input="$@"
 	maxwidth=$(($(tput cols) - 15))
 	dbg "$(eval $input)"
-	if [ -z $DEBUG ];then
+	if [ -z "$DEBUG" ];then
 		eval "$input" | fold -s -w $maxwidth
 	fi
 }
@@ -137,14 +137,14 @@ failed() {
 # Non Critical failed.
 ncfailed() {
 	$TPRINT; echo -e "${WARNING}[FAILED]${END}"
-	if [ ! -z $1 ]; then
+	if [ -n "$1" ]; then
 		foldit echo -e "INFO: $@"
 	fi
 	}
 	
 # Debug function
 dbg() {
-	if [ X"$DEBUG" = X"1" ];then
+	if [ -n "$DEBUG" ];then
 		logger -t $0 DEBUG:: -s " $*"
 		echo "$(date) $0 DEBUG:: $*" >>$DEBUGLOG
 	fi
@@ -234,7 +234,7 @@ downloadAndUnzip() {
 	foldit echo -n "Downloading ${inFile}"
 
 	# Download
-	if [ X"$DEBUG" == X"" ];then
+	if [ -z "$DEBUG" ];then
 		if wget ${inFile} -O ${outDir}/${outFile} -q; then
 			ok
 			dbg "Downloaded ${outFile}"
@@ -252,7 +252,7 @@ downloadAndUnzip() {
 	fi
 	foldit echo -n "Unzipping ${outFile}"
 	# Unzip
-	if [ X"$DEBUG" == X"" ];then
+	if [ -z "$DEBUG" ];then
 		if unzip -o -qq ${outDir}/${outFile} -d ${outDir}; then
 			ok
 			dbg "Unzipped file"
@@ -269,7 +269,7 @@ downloadAndUnzip() {
 	fi
 	foldit echo -n "Moving files to $L_REPO"
 	# rsync to $L_REPO
-	if [ X"$DEBUG" == X"" ];then
+	if [ -z "$DEBUG" ];then
 		if  rsync -aq --delete ${outDir}/${repository}-${branch} ${L_REPO}/${repository}/; then
 			ok
 			dbg "rsync to $L_REPO"
@@ -457,7 +457,7 @@ cleanup() {
 	rm -rf ${downloadDir}
 	dbg "cat $FAILEDFILE: " $(cat $FAILEDFILE)
 	
-	if [ -f $FAILEDFILE ];then
+	if [ -f "$FAILEDFILE" ];then
 		rm $FAILEDFILE 
 		dbg "Removed $FAILEDFILE"
 	fi
@@ -467,7 +467,7 @@ cleanup() {
 
 
 # Make tput work in screen
-if [ $TERM = screen ];then
+if [ "$TERM" = "screen" ];then
 	TERM=xterm
 	dbg "\$TERM was screen, setting it to xterm for running in this script"
 fi
@@ -489,7 +489,7 @@ while getopts ":hudr:l:" opt; do
 		DEBUGLOG=$(readlink -f $OPTARG)
 		;;
 		u)
-		noGet_envUpdate="YES"
+		noGet_envUpdate="1"
 		;;
 		h) 
 		helpmeny 
@@ -506,8 +506,8 @@ while getopts ":hudr:l:" opt; do
 done
 
 # Only create a debuglog if there is not one.
-if [ -n $DEBUG ];then
-	if [ -z $DEBUGLOG ];then
+if [ -n "$DEBUG" ];then
+	if [ -z "$DEBUGLOG" ];then
 		DEBUGLOG=$(mktemp /tmp/${MYNAME}.debuglog.${ddate}.XXXXXXXXX)
 	fi
 fi
@@ -531,7 +531,7 @@ fi
 
 
 # If argument -r was not given, set default $L_REPO to absolute path
-if [ X"$L_REPO" == X"" ]; then
+if [ -z "$L_REPO" ]; then
 	L_REPO="$(echo ~/.${MYNAME})"
 	dbg 'Setting defult $L_REPO to absolut path: ' "$L_REPO"
 fi
@@ -539,8 +539,8 @@ fi
 # gen_conffile() must be run before attempting to compare conffiles, but after $L_REPO is set.
 gen_conffile
 # Checks if conffile exists and have read and write permissions.
-if [ -f $CONFFILE ];then
-	if [ ! -w $CONFFILE ] || [ ! -r $CONFFILE ];then
+if [ -f "$CONFFILE" ];then
+	if [ ! -w "$CONFFILE" ] || [ ! -r "$CONFFILE" ];then
 		error_exit "No read or write permissions for $CONFFILE"
 	fi
 # Sanitize conffile so that only sane line exists. TODO: Only accepted  variables that we want?
@@ -606,8 +606,8 @@ get_envDownloaded="${L_REPO}/${get_envRepository}/${get_envRepository}-${get_env
 if ! diff -q -I '^# .*'  ~/$MYNAME ${get_envDownloaded} >/dev/null 2>&1; then
 	echo -e "" 
 	foldit echo -e '${INFO}Found newer	 $MYNAME ${END}'
-	if [ -n $noGet_envUpdate ]; then
-		dbg "\$noGet_envUpdate is set, dont replace or run newer" 
+	if [ -n "$noGet_envUpdate" ]; then
+		dbg "\$noGet_envUpdate is set , dont replace or run newer" 
 		foldit echo "Do not run newer ${MYNAME}"
 	else
 		foldit echo -en "Replacing	   $(echo ~)/${MYNAME}"
@@ -625,8 +625,8 @@ if ! diff -q -I '^# .*'  ~/$MYNAME ${get_envDownloaded} >/dev/null 2>&1; then
 		echo 
 		echo
 	# Makes next script start with debug if this instance was started with debug.
-		if [ X"$DEBUG" == X"1" ];then
-			if [ -f $DEBUGLOG ];then
+		if [ -n "$DEBUG" ];then
+			if [ -f "$DEBUGLOG" ];then
 				cleanup
 				exec ~/${MYNAME} -r "$L_REPO" -d -l "$DEBUGLOG"
 			else
@@ -672,7 +672,7 @@ for file in $NEW_FILES $UPDATED_FILES; do
 			;;
 		.bashrc.*)
 # There was a change in one of .bashrc.{files} and need to source .bashrc 
-			if [ X"$PROMPT_SOURCE" == X"" ]; then
+			if [ -z "$PROMPT_SOURCE" ]; then
 				foldit echo ""
 				foldit echo -e '${INFO}Noticed change in $(echo ~)/${file}${END}'
 				foldit echo ""
@@ -701,7 +701,7 @@ done
 #	esac
 # done
 
-if [ X"" == X"$NEW_FILES" ] && [ X"" == X"$UPDATED_FILES" ];then
+if [ -z "$NEW_FILES" ] && [ -z "$UPDATED_FILES" ];then
 	foldit echo "No new or changed files."
 fi
 
