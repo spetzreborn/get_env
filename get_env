@@ -209,8 +209,8 @@ cat <<EOF
 "Useage: ./$0 arguments"
 	options:
 	-h	 This helptext
-	-r repo  Dir to create and download repo to, default same name as my filename ($MYNAME)
-	-d	 Debug - shows whats happening and saves debuglog in the form /tmp/$MYNAME-10-21T10:42:37.XXXXXXXXX
+	-r repo  Dir to create and download repo to, default same name as my filename (${MYNAME})
+	-d	 Debug - shows whats happening and saves debuglog in the form /tmp/${MYNAME}.debuglog.2013-10-21T10:42:37.XXXXXXXXX
 	-l	If debug is used, use this file as debuglog.
 	-u  Do not update ${MYNAME} even if newer is found
 
@@ -383,6 +383,8 @@ FILES2COPY[0]='HOME $HOME .testrc'
 # This is an more realistic example
 # Files to be copied from [HOME] to [$HOME]
 # FILES2COPY[0]='HOME $HOME .bashrc .profile .vimrc .gitconfig'
+# Files to be copies from [HOME/vim] to [$HOME/.vim/plugin]
+# FILES2COPY[1]='HOME/vim $HOME/.vim/plugin gnupg.vim'
 "
 
 	CONFFILEVARIBLES=$(echo "$CONFFILECONTENT" | egrep -c '^[^#]')
