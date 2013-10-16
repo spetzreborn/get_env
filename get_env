@@ -400,6 +400,9 @@ changeConffile() {
 
 writeConffile() {
 	dbg "${FUNCNAME}() was called, arg: $*"
+	# First time run - print GNU information
+	gnuLicens
+	bar
 	foldit echo -n "Saving default configuration in $CONFFILE"
 	if echo "$CONFFILECONTENT" > $CONFFILE;then
 		ok
@@ -514,10 +517,6 @@ if [ "$TERM" = "screen" ];then
 	TERM=xterm
 	dbg "\$TERM was screen, setting it to xterm for running in this script"
 fi
-
-# Print GNU information
-gnuLicens
-bar
 
 while getopts ":hudr:l:" opt; do
 	case $opt in
