@@ -351,7 +351,7 @@ copyFiles() {
 genConffile() {
 	dbg "${FUNCNAME}() was called, arg: $*"
 	CONFFILECONTENT="\
-# Where do download new get_env from (should be an github repository)
+# Where to download new get_env from (should be a github repository)
 get_envGitServer=${get_envGitServer:-"github.com"}
 # github user
 get_envGitUser=${get_envGitUser:-"spetzreborn"}
@@ -360,7 +360,7 @@ get_envRepository=${get_envRepository:-"get_env"}
 # Branch from witch get_env is downloaded from. master or trunk
 get_envVersion=${VERSION:-"master"}
 
-# Where to download dotfiles from. (should be an github repository)
+# Where to download dotfiles from. (should be a github repository)
 gitServer=${gitServer:-"github.com"}
 # github user
 gitUser=${gitUser:-"spetzreborn"}
@@ -377,7 +377,7 @@ L_REPO=$L_REPO
 
 
 # Files to be copied to various dirs. Work like:
-# [dir_the_file_lives_in_in_repo] [dir_the_file_shuld_go_to] [files]
+# [directory where file lives in repo] [directory where file should go] [files]
 FILES2COPY[0]='HOME $HOME .testrc'
 
 # This is an more realistic example
