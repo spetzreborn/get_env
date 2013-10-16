@@ -407,7 +407,6 @@ writeConffile() {
 }
 
 # TODO: make createDir able to silently create directories when asked. (arguments)
-# TODO: Change to generic camelCase
 # Creates a directory
 createDir() {
 	dbg "${FUNCNAME}() was called, arg: $*"
