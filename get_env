@@ -66,7 +66,8 @@ TPRINT="$TPUT hpa $POSITION"
 INFO=$YELLOW
 WARNING=$RED
 
-FAILEDFILE=$(mktemp)
+FAILEDFILE=$(mktemp /tmp/${MYNAME}.XXXXXX)
+downloadDir=$(mktemp -d /tmp/${MYNAME}.XXXXXX)
 DEBUG=""
 noGet_envUpdate=""
 ddate=$(date +'%Y-%m-%dT%H:%M:%S')
@@ -627,9 +628,7 @@ foldit echo ""
 foldit echo "Using $L_REPO as repo."
 foldit echo "Using version: $VERSION "
 
-# TODO: Move to respective places, eg downloadDir to variables
-# Create download and $L_REPO dirs
-downloadDir=$(mktemp -d /tmp/${MYNAME}.XXXXXX)
+# Create $L_REPO directory
 create_dir $L_REPO
 
 # Download new get_env and repository as zip from github
