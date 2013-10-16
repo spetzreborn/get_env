@@ -195,7 +195,7 @@ ${awn}"'
 
 # Function for exit due to fatal program error
 # Takes argument as string containing error message
-error_exit() {
+errorExit() {
 	dbg "${FUNCNAME}() was called, arg: $*"
 	echo -e "${WARNING}${MYNAME}: ${1:-"Unknown Error"}${END}" 1>&2
 	dbg  "${MYNAME}: ${1:-"Unknown Error"}"
@@ -203,8 +203,8 @@ error_exit() {
 	exit 1
 }
 
-# Helpmeny when invoked with -h
-helpmeny() {
+# Help menu when invoked with -h
+helpMenu() {
 cat <<EOF
 "Useage: ./$0 arguments"
 	options:
@@ -229,7 +229,7 @@ downloadAndUnzip() {
 	local inFile="https://${server}/${user}/${repository}/archive/${branch}.zip"
 	local outDir="${downloadDir}/${repository}"
 	local outFile="${repository}-${branch}.zip"
-	create_dir ${downloadDir}/${repository}
+	createDir ${downloadDir}/${repository}
 	foldit echo -n "Downloading ${inFile}"
 
 	# Download
@@ -288,14 +288,14 @@ downloadAndUnzip() {
 
 # Files that shall be copied
 # Arg: dir_in_repo dir_to_be_moved_to _files_
-copy_files() {
+copyFiles() {
 	dbg "${FUNCNAME}() was called, arg: $*"
 	local from_dir=$1
 	shift
 	local to_dir=$1
 	shift
 # Test if $to_dir exists
-	create_dir $to_dir
+	createDir $to_dir
 
 	for file in $*
 	do
@@ -348,7 +348,7 @@ copy_files() {
 }
 
 # Number of variables that is supposed to be in CONFFILE, is used to check if new conffile will be written
-gen_conffile() {
+genConffile() {
 	dbg "${FUNCNAME}() was called, arg: $*"
 	CONFFILECONTENT="\
 # Where do download new get_env from (should be an github repository)
@@ -390,13 +390,13 @@ FILES2COPY[0]='HOME $HOME .testrc'
 
 # Change the values in $CONFFILE
 # Arg: variable value
-change_conf() {
+changeConffile() {
 	dbg "${FUNCNAME}() was called, arg: $*"
 	sed -i "s/\($1 *= *\).*/\1$2/" $CONFFILE
 }
 
 
-write_conffile() {
+writeConffile() {
 	dbg "${FUNCNAME}() was called, arg: $*"
 	foldit echo -n "Saving default configuration in $CONFFILE"
 	if echo "$CONFFILECONTENT" > $CONFFILE;then
@@ -406,10 +406,10 @@ write_conffile() {
 	fi
 }
 
-# TODO: make create_dir able to silently create directories when asked. (arguments)
+# TODO: make createDir able to silently create directories when asked. (arguments)
 # TODO: Change to generic camelCase
 # Creates a directory
-create_dir() {
+createDir() {
 	dbg "${FUNCNAME}() was called, arg: $*"
 	DIR=$1
 	dbg "Test if $DIR exists"
@@ -534,7 +534,7 @@ while getopts ":hudr:l:" opt; do
 		noGet_envUpdate="1"
 		;;
 		h) 
-		helpmeny 
+		helpMenu 
 		;;	
 		\?) 
 		echo "Invalid option: -$OPTARG" >&2
@@ -563,12 +563,12 @@ INETCON=$(host google.com)
 INETERR=$?
 dbg "Checked internet connection by 'host google.com' answer:${INETCON}"
 if [ "$INETERR" != "0" ];then
-	error_exit "No internet connection or none functional dns. Exiting"
+	errorExit "No internet connection or none functional dns. Exiting"
 fi
 
 # Verify write permissions in homedir
 if [ ! -w ~ ];then
-	error_exit "Have no write permissions in $(echo ~)"
+	errorExit "Have no write permissions in $(echo ~)"
 fi
 
 
@@ -578,12 +578,12 @@ if [ -z "$L_REPO" ]; then
 	dbg 'Setting defult $L_REPO to absolut path: ' "$L_REPO"
 fi
 
-# gen_conffile() must be run before attempting to compare conffiles, but after $L_REPO is set.
-gen_conffile
+# genConffile() must be run before attempting to compare conffiles, but after $L_REPO is set.
+genConffile
 # Checks if conffile exists and have read and write permissions.
 if [ -f "$CONFFILE" ];then
 	if [ ! -w "$CONFFILE" ] || [ ! -r "$CONFFILE" ];then
-		error_exit "No read or write permissions for $CONFFILE"
+		errorExit "No read or write permissions for $CONFFILE"
 	fi
 # Sanitize conffile so that only sane line exists. TODO: Only accepted  variables that we want?
 	if BadContent=$(egrep -v \
@@ -592,7 +592,7 @@ if [ -f "$CONFFILE" ];then
 	-e "^FILES2COPY[[][0-9]+[]]='[A-Za-z0-9/_~. ]+'" \
 	$CONFFILE);then 
 		dbg "$CONFFILE is not sanitized: $BadContent"
-		error_exit "$CONFFILE contains bad things: $BadContent"
+		errorExit "$CONFFILE contains bad things: $BadContent"
 	fi
 # Matches variables in default conffile and conffile. Only counts VARIABLE_NAME=variable. Variables must be set
 	if [ "$(egrep -c '^[^#]' $CONFFILE)" -eq "$CONFFILEVARIBLES" ]; then
@@ -601,16 +601,16 @@ if [ -f "$CONFFILE" ];then
 # Pre source conffile, to be able to use settings from the old conffile.
 		. $CONFFILE
 # Regenerate conffile, using sourced values.
-		gen_conffile
+		genConffile
 		dbg "Pre sourced conffile: $CONFFILE"
 		dbg "$CONFFILE has not the same numer of values as built in, overwriting using the values from pre sourced conffile."
 # Create conffile
-		write_conffile "Found no conffile, created $CONFFILE. Edit this before running $MYNAME again."
+		writeConffile "Found no conffile, created $CONFFILE. Edit this before running $MYNAME again."
 	fi
 else
 	dbg "\$CONFFILE ($CONFFILE) does not exist, creating."
-	write_conffile
-	error_exit "Created $CONFFILE, before running $MYNAME again, edit $CONFFILE"
+	writeConffile
+	errorExit "Created $CONFFILE, before running $MYNAME again, edit $CONFFILE"
 fi
 
 # Source conffile.
@@ -629,7 +629,7 @@ foldit echo "Using $L_REPO as repo."
 foldit echo "Using version: $VERSION "
 
 # Create $L_REPO directory
-create_dir $L_REPO
+createDir $L_REPO
 
 # Download new get_env and repository as zip from github
 echo ""
@@ -644,11 +644,11 @@ downloadAndUnzip $gitServer $gitUser $repository $VERSION
 
 # TODO: Move this to conffile
 # Creates directories
-create_dir $HOME/sshfs
+createDir $HOME/sshfs
 
-# Call copy_files() for all values in array $FILES2COPY
+# Call copyFiles() for all values in array $FILES2COPY
 for array in "${FILES2COPY[@]}";do
-	copy_files $array
+	copyFiles $array
 done
 
 # Send to debug which files where new or updated
