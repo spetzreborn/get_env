@@ -19,6 +19,7 @@
 # Refactorded 2013 for git
 
 # TODO: Add silent and quietmode for suppressed output, e.g when run from cron
+# TODO: Make "dryrun" download and unpack, but not change any files or create any directories.
 
 # Exit on error
 # set -e
