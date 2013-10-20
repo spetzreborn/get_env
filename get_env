@@ -308,7 +308,7 @@ copyFiles() {
 				createDir "${L_REPO}/backup"
 				foldit echo -n "Found difference in ${to_dir}/${file}, making backup"
 				if [ $(echo $file | cut -c1) == "." ];then
-					if cp ${to_dir}/${file} ${L_REPO}/backup/dot.${file}.${ddate}; then
+					if cp ${to_dir}/${file} ${L_REPO}/backup/dot${file}.${ddate}; then
 						ok
 						dbg "Backed up: ${L_REPO}/backup/${file}.${ddate}"
 					else
