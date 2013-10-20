@@ -304,19 +304,19 @@ copyFiles() {
 # .. diff it with the source file .. This magic diff ignores comments. Both .vimrc and bash comments.
 			if ! diff -q -I '^# .*' -I '^" .*' ${L_REPO}/${repository}/${repository}-${VERSION}/${from_dir}/${file} ${to_dir}/${file} >/dev/null 2>&1; then
 # .. And if it is not the same, copy to backup file:
+				createDir "${L_REPO}/backup"
 				foldit echo -n "Found difference in ${to_dir}/${file}, making backup"
-# TODO: Backup to $L_REPO instead
 				if [ $(echo $file | cut -c1) == "." ];then
-					if cp ${to_dir}/${file} ${to_dir}/${file}.old; then
+					if cp ${to_dir}/${file} ${L_REPO}/backup/${file}.${ddate}; then
 						ok
-						dbg "Backed up: ${to_dir}/${file}"
+						dbg "Backed up: ${L_REPO}/backup/${file}.${ddate}"
 					else
 						ncfailed
 					fi
 				else
-					if cp ${to_dir}/${file} ${to_dir}/.${file}.old; then
+					if cp ${to_dir}/${file} ${L_REPO}/backup/dot.${file}.${ddate}; then
 						ok
-						dbg "Backed up: ${to_dir}/${file}"
+						dbg "Backed up: ${L_REPO}/backup/${file}.${ddate}"
 					else
 						ncfailed
 					fi
@@ -411,6 +411,7 @@ writeConffile() {
 	fi
 }
 
+# TODO: make createDir take multiple arguments for directories to be created 
 # TODO: make createDir able to silently create directories when asked. (arguments)
 # Creates a directory
 createDir() {
