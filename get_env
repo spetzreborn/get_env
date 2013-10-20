@@ -19,6 +19,7 @@
 # Refactorded 2013 for git
 
 # TODO: Add silent and quietmode for suppressed output, e.g when run from cron
+# TODO: Make "dryrun" download and unpack, but not change any files or create any directories.
 
 # Exit on error
 # set -e
@@ -307,14 +308,14 @@ copyFiles() {
 				createDir "${L_REPO}/backup"
 				foldit echo -n "Found difference in ${to_dir}/${file}, making backup"
 				if [ $(echo $file | cut -c1) == "." ];then
-					if cp ${to_dir}/${file} ${L_REPO}/backup/${file}.${ddate}; then
+					if cp ${to_dir}/${file} ${L_REPO}/backup/dot.${file}.${ddate}; then
 						ok
 						dbg "Backed up: ${L_REPO}/backup/${file}.${ddate}"
 					else
 						ncfailed
 					fi
 				else
-					if cp ${to_dir}/${file} ${L_REPO}/backup/dot.${file}.${ddate}; then
+					if cp ${to_dir}/${file} ${L_REPO}/backup/${file}.${ddate}; then
 						ok
 						dbg "Backed up: ${L_REPO}/backup/${file}.${ddate}"
 					else
