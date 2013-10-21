@@ -385,6 +385,10 @@ files2copy[0]='HOME $HOME .testrc'
 # files2copy[0]='HOME $HOME .bashrc .profile .vimrc .gitconfig'
 # Files to be copies from [HOME/vim] to [$HOME/.vim/plugin]
 # files2copy[1]='HOME/vim $HOME/.vim/plugin gnupg.vim'
+
+# Create directories
+# I like to have an empty directory named 'sshfs' in my homedir for mounting sshfs.
+dirsToCreate="$HOME/sshfs"
 "
 
 	confFileVariables=$(echo "$confFileContent" | egrep -c '^[^#]')
@@ -411,23 +415,23 @@ writeConfFile() {
 	fi
 }
 
-# TODO: make createDir take multiple arguments for directories to be created 
 # TODO: make createDir able to silently create directories when asked. (arguments)
 # Creates a directory
 createDir() {
 	dbg "${FUNCNAME}() was called, arg: $*"
-	dir=$1
-	dbg "Test if $dir exists"
-	if [ ! -d $dir ];then
-		foldIt echo -n "Creating directory $dir"
-		if mkdir -p $dir;then
-			dbg "Created $dir"
-			ok
-			createdDirs="${createdDirs}$dir "
-		else
-			failed "Failed to create $dir"
+	for dir in $*;do
+		dbg "Test if $dir exists"
+		if [ ! -d $dir ];then
+			foldIt echo -n "Creating directory $dir"
+			if mkdir -p $dir;then
+				dbg "Created $dir"
+				ok
+				createdDirs="${createdDirs}$dir "
+			else
+				failed "Failed to create $dir"
+			fi
 		fi
-	fi
+	done
 }
 
 # Echo variables to debug
@@ -643,9 +647,8 @@ get_envDiffAndRestart
 # Download repository with files
 downloadAndUnzip $gitServer $gitUser $repository $version
 
-# TODO: Move this to confFile
-# Creates directories
-createDir $HOME/sshfs
+# Creates directories from confFile
+createDir $dirsToCreate
 
 # Call copyFiles() for all values in array $files2copy
 for array in "${files2copy[@]}";do
