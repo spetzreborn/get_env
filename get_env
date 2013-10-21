@@ -37,39 +37,37 @@ depends() {
 depends wget logger tput cp rm cat ln unlink diff host mkdir grep egrep sed fold unzip rsync
 
 
-# Variables in capital are localstuffs, the lowercase regards the remote server
-
 # The script name
-MYNAME=$(basename $0)
+myName=$(basename $0)
 
 # The absolute script name, on server, and default name.
-myabsolutename=get_env
+myAbsoluteName=get_env
 
-# Conffile
-CONFFILE=~/${MYNAME}.conf
+# Configurationfile
+confFile=~/${myName}.conf
 
 # Colors
-RED='\033[0;31m'
-BOLD_RED='\033[1;31m'
-PURPLE='\033[0;35m'
-CYAN='\033[0;36m'
-YELLOW='\033[1;33m'
-WHITE='\033[1;37m'
-BLUE='\033[1;34m'
-GREEN='\033[1;32m'
-END='\033[0m'
+red='\033[0;31m'
+boldRed='\033[1;31m'
+purple='\033[0;35m'
+cyan='\033[0;36m'
+yellow='\033[1;33m'
+while='\033[1;37m'
+blue='\033[1;34m'
+green='\033[1;32m'
+end='\033[0m'
 
 # Values for Warnings and Info text
-TPUT=$(which tput)
-POSITION=$(($($TPUT cols) - 10))
-TPRINT="$TPUT hpa $POSITION"
+tput=$(which tput)
+position=$(($($tput cols) - 10))
+tprint="$tput hpa $position"
 # Colors for Info and Warning texts.
-INFO=$YELLOW
-WARNING=$RED
+info=$yellow
+warning=$red
 
-FAILEDFILE=$(mktemp /tmp/${MYNAME}.XXXXXX)
-downloadDir=$(mktemp -d /tmp/${MYNAME}.XXXXXX)
-DEBUG=""
+failedFile=$(mktemp /tmp/${myName}.XXXXXX)
+downloadDir=$(mktemp -d /tmp/${myName}.XXXXXX)
+debug=""
 noGet_envUpdate=""
 ddate=$(date +'%Y-%m-%dT%H:%M:%S')
 
@@ -79,7 +77,7 @@ ddate=$(date +'%Y-%m-%dT%H:%M:%S')
 gnuLicens() {
 cat <<EOF
 
-$MYNAME Copyright (C) 2013 Björn Bohman
+$myName Copyright (C) 2013 Björn Bohman
 
     This program is free software: you can redistribute it and/or modify
     it under the terms of the GNU General Public License as published by
@@ -101,52 +99,52 @@ EOF
 }
 
 # Function for word wrapping
-foldit() {
+foldIt() {
 	input="$@"
 	maxwidth=$(($(tput cols) - 15))
 	dbg "$(eval $input)"
-	if [ -z "$DEBUG" ];then
+	if [ -z "$debug" ];then
 		eval "$input" | fold -s -w $maxwidth
 	fi
 }
 
 # Function to echo out a coloured bar between sections.
 bar() {
-	echo -e "${BLUE}*-----------*${END}"
+	echo -e "${blue}*-----------*${end}"
 	}
 
 # Function to echo out coloured stars between sections.
 stars() {
-	echo -e "${BOLD_RED}*************${END}"
+	echo -e "${boldRed}*************${end}"
 	}
 
 # Function to echo out "ok" after a check
 ok() {
-	$TPRINT; echo -e "${GREEN}[OK]${END}"
+	$tprint; echo -e "${green}[OK]${end}"
 	}
 
 # Function to echo out "failed" after a check, and exit
 failed() {
-	$TPRINT; echo -e "${WARNING}[FAILED]${END}"
-	echo -e "${WARNING}$@${END}"
-	cat $FAILEDFILE
-	dbg "$*" "FAILED FILE:" $(cat $FAILEDFILE)
+	$tprint; echo -e "${warning}[FAILED]${end}"
+	echo -e "${warning}$@${end}"
+	cat $failedFile
+	dbg "$*" "FAILED FILE:" $(cat $failedFile)
 	exit 1 
 	}
 	
 # Non Critical failed.
 ncfailed() {
-	$TPRINT; echo -e "${WARNING}[FAILED]${END}"
+	$tprint; echo -e "${warning}[FAILED]${end}"
 	if [ -n "$1" ]; then
-		foldit echo -e "INFO: $@"
+		foldIt echo -e "INFO: $@"
 	fi
 	}
 	
 # Debug function
 dbg() {
-	if [ -n "$DEBUG" ];then
+	if [ -n "$debug" ];then
 		logger -t $0 DEBUG:: -s " $*"
-		echo "$(date) $0 DEBUG:: $*" >>$DEBUGLOG
+		echo "$(date) $0 DEBUG:: $*" >>$debugLog
 	fi
 	}
 
@@ -174,12 +172,12 @@ get_envVersion=$get_envVersion&
 gitServer=$gitServer&
 gitUser=$gitUser&
 repository=$repository&
-VERSION=$VERSION&
-myname=$MYNAME&
-L_REPO=$L_REPO&
-NEW_FILES=$NEW_FILES&
-UPDATED_FILES=$UPDATED_FILES&
-CREATED_DIRS=$CREATED_DIRS&
+version=$version&
+myName=$myName&
+localWorkDir=$L_REPO&
+newFiles=$newFiles&
+updatedFiles=$updatedFiles
+createdDirs=$createdDirs&
 ${awn}"'
 
 		echo -n "Reporting to webbserver"
@@ -198,8 +196,8 @@ ${awn}"'
 # Takes argument as string containing error message
 errorExit() {
 	dbg "${FUNCNAME}() was called, arg: $*"
-	echo -e "${WARNING}${MYNAME}: ${1:-"Unknown Error"}${END}" 1>&2
-	dbg  "${MYNAME}: ${1:-"Unknown Error"}"
+	echo -e "${warning}${myName}: ${1:-"Unknown Error"}${end}" 1>&2
+	dbg  "${myName}: ${1:-"Unknown Error"}"
 	report "error=$1"
 	exit 1
 }
@@ -210,10 +208,10 @@ cat <<EOF
 "Useage: ./$0 arguments"
 	options:
 	-h	 This helptext
-	-r repo  Dir to create and download repo to, default same name as my filename (${MYNAME})
-	-d	 Debug - shows whats happening and saves debuglog in the form /tmp/${MYNAME}.debuglog.2013-10-21T10:42:37.XXXXXXXXX
-	-l	If debug is used, use this file as debuglog.
-	-u  Do not update ${MYNAME} even if newer is found
+	-r repo  Dir to create and download repo to, default same name as my filename (${myName})
+	-d	 Debug - shows whats happening and saves debugLog in the form /tmp/${myName}.debugLog.2013-10-21T10:42:37.XXXXXXXXX
+	-l	If debug is used, use this file as debugLog.
+	-u  Do not update ${myName} even if newer is found
 
 EOF
 	exit 0
@@ -231,10 +229,10 @@ downloadAndUnzip() {
 	local outDir="${downloadDir}/${repository}"
 	local outFile="${repository}-${branch}.zip"
 	createDir ${downloadDir}/${repository}
-	foldit echo -n "Downloading ${inFile}"
+	foldIt echo -n "Downloading ${inFile}"
 
 	# Download
-	if [ -z "$DEBUG" ];then
+	if [ -z "$debug" ];then
 		if wget ${inFile} -O ${outDir}/${outFile} -q; then
 			ok
 			dbg "Downloaded ${outFile}"
@@ -250,9 +248,9 @@ downloadAndUnzip() {
 			failed "Could not download zipfile"
 		fi
 	fi
-	foldit echo -n "Unzipping ${outFile}"
+	foldIt echo -n "Unzipping ${outFile}"
 	# Unzip
-	if [ -z "$DEBUG" ];then
+	if [ -z "$debug" ];then
 		if unzip -o -qq ${outDir}/${outFile} -d ${outDir}; then
 			ok
 			dbg "Unzipped file"
@@ -267,19 +265,19 @@ downloadAndUnzip() {
 			failed "Failed to unzip"
 		fi
 	fi
-	foldit echo -n "Moving files to $L_REPO"
-	# rsync to $L_REPO
-	if [ -z "$DEBUG" ];then
-		if  rsync -aq --delete ${outDir}/${repository}-${branch} ${L_REPO}/${repository}/; then
+	foldIt echo -n "Moving files to $localWorkDir"
+	# rsync to $localWorkDir
+	if [ -z "$debug" ];then
+		if  rsync -aq --delete ${outDir}/${repository}-${branch} ${localWorkDir}/${repository}/; then
 			ok
-			dbg "rsync to $L_REPO"
+			dbg "rsync to $localWorkDir"
 		else
 			failed "Failed to rsync"
 		fi
 	else
-		if  rsync -a --delete ${outDir}/${repository}-${branch} ${L_REPO}/${repository}/; then
+		if  rsync -a --delete ${outDir}/${repository}-${branch} ${localWorkDir}/${repository}/; then
 			ok
-			dbg "rsync to $L_REPO"
+			dbg "rsync to $localWorkDir"
 		else
 			failed "Failed to rsync"
 		fi
@@ -291,43 +289,44 @@ downloadAndUnzip() {
 # Arg: dir_in_repo dir_to_be_moved_to _files_
 copyFiles() {
 	dbg "${FUNCNAME}() was called, arg: $*"
-	local from_dir=$1
+	local fromDir=$1
 	shift
-	local to_dir=$1
+	local toDir=$1
 	shift
-# Test if $to_dir exists
-	createDir $to_dir
+# Test if $toDir exists
+	createDir $toDir
 
 	for file in $*
 	do
 # If the destfile exist ...
-		if [ -f ${to_dir}/${file} ]; then 
+		if [ -f ${toDir}/${file} ]; then 
 # .. diff it with the source file .. This magic diff ignores comments. Both .vimrc and bash comments.
-			if ! diff -q -I '^# .*' -I '^" .*' ${L_REPO}/${repository}/${repository}-${VERSION}/${from_dir}/${file} ${to_dir}/${file} >/dev/null 2>&1; then
+			if ! diff -q -I '^# .*' -I '^" .*' ${localWorkDir}/${repository}/${repository}-${version}/${fromDir}/${file} ${toDir}/${file} >/dev/null 2>&1; then
 # .. And if it is not the same, copy to backup file:
-				createDir "${L_REPO}/backup"
-				foldit echo -n "Found difference in ${to_dir}/${file}, making backup"
+# TODO: gzip backup? Number of backups? Better structure?
+				createDir "${localWorkDir}/backup"
+				foldIt echo -n "Found difference in ${toDir}/${file}, making backup"
 				if [ $(echo $file | cut -c1) == "." ];then
-					if cp ${to_dir}/${file} ${L_REPO}/backup/dot${file}.${ddate}; then
+					if cp ${toDir}/${file} ${localWorkDir}/backup/dot${file}.${ddate}; then
 						ok
-						dbg "Backed up: ${L_REPO}/backup/${file}.${ddate}"
+						dbg "Backed up: ${localWorkDir}/backup/${file}.${ddate}"
 					else
 						ncfailed
 					fi
 				else
-					if cp ${to_dir}/${file} ${L_REPO}/backup/${file}.${ddate}; then
+					if cp ${toDir}/${file} ${localWorkDir}/backup/${file}.${ddate}; then
 						ok
-						dbg "Backed up: ${L_REPO}/backup/${file}.${ddate}"
+						dbg "Backed up: ${localWorkDir}/backup/${file}.${ddate}"
 					else
 						ncfailed
 					fi
 				fi
 # .. Copy the new file
-				foldit echo -n "Copy new ${to_dir}/$file"
-				if cp ${L_REPO}/${repository}/${repository}-${VERSION}/${from_dir}/${file} ${to_dir}/${file}; then
+				foldIt echo -n "Copy new ${toDir}/$file"
+				if cp ${localWorkDir}/${repository}/${repository}-${version}/${fromDir}/${file} ${toDir}/${file}; then
 					ok
-					dbg "Updated file: ${to_dir}/${file} copied ok"
-					UPDATED_FILES="${UPDATED_FILES}${file} "
+					dbg "Updated file: ${toDir}/${file} copied ok"
+					updatedFiles="${updatedFiles}${file} "
 				else
 					failed
 				fi
@@ -336,11 +335,11 @@ copyFiles() {
 			fi
 # If the to_file dose not exist, just copy it.
 		else
-			foldit echo -n "Copy new ${to_dir}/${file}"
-			if cp ${L_REPO}/${repository}/${repository}-${VERSION}/${from_dir}/${file} ${to_dir}/${file} >/dev/null 2>&1; then
+			foldIt echo -n "Copy new ${toDir}/${file}"
+			if cp ${localWorkDir}/${repository}/${repository}-${version}/${fromDir}/${file} ${toDir}/${file} >/dev/null 2>&1; then
 				ok
-				dbg "New file: ${to_dir}/${file} copied ok"
-				NEW_FILES="${NEW_FILES}${file} "
+				dbg "New file: ${toDir}/${file} copied ok"
+				newFiles="${newFiles}${file} "
 			else
 				failed
 			fi
@@ -348,10 +347,10 @@ copyFiles() {
 	done
 }
 
-# Number of variables that is supposed to be in CONFFILE, is used to check if new conffile will be written
-genConffile() {
+# Number of variables that is supposed to be in confFile, is used to check if new confFile will be written
+genConfFile() {
 	dbg "${FUNCNAME}() was called, arg: $*"
-	CONFFILECONTENT="\
+	confFileContent="\
 # Where to download new get_env from (should be a github repository)
 get_envGitServer=${get_envGitServer:-"github.com"}
 # github user
@@ -359,7 +358,7 @@ get_envGitUser=${get_envGitUser:-"spetzreborn"}
 # github repository
 get_envRepository=${get_envRepository:-"get_env"}
 # Branch from witch get_env is downloaded from. master or trunk
-get_envVersion=${VERSION:-"master"}
+get_envVersion=${version:-"master"}
 
 # Where to download dotfiles from. (should be a github repository)
 gitServer=${gitServer:-"github.com"}
@@ -368,10 +367,10 @@ gitUser=${gitUser:-"spetzreborn"}
 # github repository
 repository=${repository:-"dotfiles"}
 # Branch from witch get_env is downloaded from. master or trunk
-VERSION=${VERSION:-"master"}
+version=${version:-"master"}
 
 # Path to local repository
-L_REPO=$L_REPO
+localWorkDir=$localWorkDir
 
 # If set, report status to this address. (Uses report.php from github.com/spetzreborn/get_env)
 #reportUrl=""
@@ -379,36 +378,36 @@ L_REPO=$L_REPO
 
 # Files to be copied to various dirs. Work like:
 # [directory where file lives in repo] [directory where file should go] [files]
-FILES2COPY[0]='HOME $HOME .testrc'
+files2copy[0]='HOME $HOME .testrc'
 
 # This is an more realistic example
 # Files to be copied from [HOME] to [$HOME]
-# FILES2COPY[0]='HOME $HOME .bashrc .profile .vimrc .gitconfig'
+# files2copy[0]='HOME $HOME .bashrc .profile .vimrc .gitconfig'
 # Files to be copies from [HOME/vim] to [$HOME/.vim/plugin]
-# FILES2COPY[1]='HOME/vim $HOME/.vim/plugin gnupg.vim'
+# files2copy[1]='HOME/vim $HOME/.vim/plugin gnupg.vim'
 "
 
-	CONFFILEVARIBLES=$(echo "$CONFFILECONTENT" | egrep -c '^[^#]')
+	confFileVariables=$(echo "$confFileContent" | egrep -c '^[^#]')
 }
 
-# Change the values in $CONFFILE
+# Change the values in $confFile
 # Arg: variable value
-changeConffile() {
+changeConfFile() {
 	dbg "${FUNCNAME}() was called, arg: $*"
-	sed -i "s/\($1 *= *\).*/\1$2/" $CONFFILE
+	sed -i "s/\($1 *= *\).*/\1$2/" $confFile
 }
 
 
-writeConffile() {
+writeConfFile() {
 	dbg "${FUNCNAME}() was called, arg: $*"
 	# First time run - print GNU information
 	gnuLicens
 	bar
-	foldit echo -n "Saving default configuration in $CONFFILE"
-	if echo "$CONFFILECONTENT" > $CONFFILE;then
+	foldIt echo -n "Saving default configuration in $confFile"
+	if echo "$confFileContent" > $confFile;then
 		ok
 	else
-		failed "Could not write $CONFFILE"
+		failed "Could not write $confFile"
 	fi
 }
 
@@ -417,16 +416,16 @@ writeConffile() {
 # Creates a directory
 createDir() {
 	dbg "${FUNCNAME}() was called, arg: $*"
-	DIR=$1
-	dbg "Test if $DIR exists"
-	if [ ! -d $DIR ];then
-		foldit echo -n "Creating directory $DIR"
-		if mkdir -p $DIR;then
-			dbg "Created $DIR"
+	dir=$1
+	dbg "Test if $dir exists"
+	if [ ! -d $dir ];then
+		foldIt echo -n "Creating directory $dir"
+		if mkdir -p $dir;then
+			dbg "Created $dir"
 			ok
-			CREATED_DIRS="${CREATED_DIRS}$DIR "
+			createdDirs="${createdDirs}$dir "
 		else
-			failed "Failed to create $DIR"
+			failed "Failed to create $dir"
 		fi
 	fi
 }
@@ -434,26 +433,26 @@ createDir() {
 # Echo variables to debug
 showVariables() {
 	dbg "Variables I have: "
-	dbg "\$MYNAME: $MYNAME"
+	dbg "\$myName: $myName"
 	dbg "\$gituser: $gituser"
 	dbg "\$gitserver: $gitserver"
-	dbg "\$L_REPO: $L_REPO"
+	dbg "\$localWorkDir: $localWorkDir"
 	dbg "\$get_envGitServer: $get_envGitServer"
 	dbg "\$get_envGitUser: $get_envGitUser"
 	dbg "\$get_envRepository: $get_envRepository"
-	dbg "\$get_envVersion: $VERSION"
+	dbg "\$get_envVersion: $get_envVersion"
 	dbg "\$gitServer: $gitServer"
 	dbg "\$gitUser: $gitUser"
 	dbg "\$repository: $repository"
-	dbg "\$VERSION: $VERSION"
-	# Call dbg() for all values in array $FILES2COPY
+	dbg "\$version: $version"
+	# Call dbg() for all values in array $files2copy
 	i=0
-	for array in "${FILES2COPY[@]}";do
-		dbg "\$FILE2COPY[$i]: $array"
+	for array in "${files2copy[@]}";do
+		dbg "\$files2copy[$i]: $array"
 		((i++))
 	done
-	dbg "\$DEBUG:$DEBUG"
-	dbg "\$DEBUGLOG: $DEBUGLOG"
+	dbg "\$debug:$debug"
+	dbg "\$debugLog: $debugLog"
 }
 
 # Test if there was a change in get_env - and is needed to be run again.
@@ -461,22 +460,22 @@ showVariables() {
 # This diff dose not care about comments.
 get_envDiffAndRestart() {
 	dbg "${FUNCNAME}() was called."
-	get_envDownloaded="${L_REPO}/${get_envRepository}/${get_envRepository}-${get_envVersion}/${myabsolutename}"
-	if ! diff -q -I '^# .*'  ~/$MYNAME ${get_envDownloaded} >/dev/null 2>&1; then
+	get_envDownloaded="${localWorkDir}/${get_envRepository}/${get_envRepository}-${get_envVersion}/${myAbsoluteName}"
+	if ! diff -q -I '^# .*'  ~/$myName ${get_envDownloaded} >/dev/null 2>&1; then
 		echo -e "" 
-		foldit echo -e '${INFO}Found newer	 $MYNAME ${END}'
+		foldIt echo -e '${INFO}Found newer	 $myName ${END}'
 		if [ -n "$noGet_envUpdate" ]; then
 			dbg "\$noGet_envUpdate is set, dont replace or run newer" 
-			foldit echo "Do not run newer ${MYNAME}"
+			foldIt echo "Do not run newer ${myName}"
 		else
-			foldit echo -en "Replacing	   $(echo ~)/${MYNAME}"
-			if cp ${get_envDownloaded} ~/${MYNAME}; then
+			foldIt echo -en "Replacing	   $(echo ~)/${myName}"
+			if cp ${get_envDownloaded} ~/${myName}; then
 				ok
-				dbg "Replaced ${MYNAME} with newer successfully."
+				dbg "Replaced ${myName} with newer successfully."
 			else
-				failed "Could not copy the file ${myabsolutename} to ${MYNAME}"
+				failed "Could not copy the file ${myAbsoluteName} to ${myName}"
 			fi
-			foldit echo -e '${INFO}Executing new $(echo ~)/${MYNAME}${END}'
+			foldIt echo -e '${INFO}Executing new $(echo ~)/${myName}${END}'
 			bar
 			echo
 			echo 
@@ -484,16 +483,16 @@ get_envDiffAndRestart() {
 			echo 
 			echo
 		# Makes next script start with debug if this instance was started with debug.
-			if [ -n "$DEBUG" ];then
-				if [ -f "$DEBUGLOG" ];then
+			if [ -n "$debug" ];then
+				if [ -f "$debugLog" ];then
 					cleanup
-					exec ~/${MYNAME} -r "$L_REPO" -d -l "$DEBUGLOG"
+					exec ~/${myName} -r "$localWorkDir" -d -l "$debugLog"
 				else
 					cleanup
-					exec ~/${MYNAME} -r "$L_REPO" -d
+					exec ~/${myName} -r "$localWorkDir" -d
 				fi
 			else
-				exec ~/${MYNAME} -r "$L_REPO"
+				exec ~/${myName} -r "$localWorkDir"
 			fi
 		fi
 	fi
@@ -503,11 +502,11 @@ cleanup() {
 # Remove downloaded files and temporary directories
 	dbg "${FUNCNAME}() was called, arg: $*"
 	rm -rf ${downloadDir}
-	dbg "cat $FAILEDFILE: " $(cat $FAILEDFILE)
+	dbg "cat $failedFile: " $(cat $failedFile)
 	
-	if [ -f "$FAILEDFILE" ];then
-		rm $FAILEDFILE 
-		dbg "Removed $FAILEDFILE"
+	if [ -f "$failedFile" ];then
+		rm $failedFile 
+		dbg "Removed $failedFile"
 	fi
 }
 
@@ -523,14 +522,14 @@ fi
 while getopts ":hudr:l:" opt; do
 	case $opt in
 		r)	
-		L_REPO=$(readlink -f $OPTARG)
+		localWorkDir=$(readlink -f $OPTARG)
 		;;	
 		d)
-		DEBUG=1
-		echo "Debug is set, saving debuglog to: $DEBUGLOG"
+		debug=1
+		echo "Debug is set, saving debugLog to: $debugLog"
 		;;
 		l)
-		DEBUGLOG=$(readlink -f $OPTARG)
+		debugLog=$(readlink -f $OPTARG)
 		;;
 		u)
 		noGet_envUpdate="1"
@@ -549,10 +548,10 @@ while getopts ":hudr:l:" opt; do
 	esac
 done
 
-# Only create a debuglog if there is not one.
-if [ -n "$DEBUG" ];then
-	if [ -z "$DEBUGLOG" ];then
-		DEBUGLOG=$(mktemp /tmp/${MYNAME}.debuglog.${ddate}.XXXXXXXXX)
+# Only create a debugLog if there is not one.
+if [ -n "$debug" ];then
+	if [ -z "$debugLog" ];then
+		debugLog=$(mktemp /tmp/${myName}.debugLog.${ddate}.XXXXXXXXX)
 	fi
 fi
 
@@ -561,77 +560,77 @@ showVariables
 
 # Check for internet connection
 dbg "Checking for internet connection . . ."
-INETCON=$(host google.com)
-INETERR=$?
-dbg "Checked internet connection by 'host google.com' answer:${INETCON}"
-if [ "$INETERR" != "0" ];then
+inetCon=$(host google.com)
+inetErr=$?
+dbg "Checked internet connection by 'host google.com' answer:${inetCon}"
+if [ "$inetErr" != "0" ];then
 	errorExit "No internet connection or none functional dns. Exiting"
 fi
 
-# Verify write permissions in homedir
+# Verify write permissions in homedirectory
 if [ ! -w ~ ];then
 	errorExit "Have no write permissions in $(echo ~)"
 fi
 
 
-# If argument -r was not given, set default $L_REPO to absolute path
-if [ -z "$L_REPO" ]; then
-	L_REPO="$(echo ~/.${MYNAME})"
-	dbg 'Setting defult $L_REPO to absolut path: ' "$L_REPO"
+# If argument -r was not given, set default $localWorkDir to absolute path
+if [ -z "$localWorkDir" ]; then
+	localWorkDir="$(echo ~/.${myName})"
+	dbg 'Setting defult $localWorkDir to absolut path: ' "$L_REPO"
 fi
 
-# genConffile() must be run before attempting to compare conffiles, but after $L_REPO is set.
-genConffile
-# Checks if conffile exists and have read and write permissions.
-if [ -f "$CONFFILE" ];then
-	if [ ! -w "$CONFFILE" ] || [ ! -r "$CONFFILE" ];then
-		errorExit "No read or write permissions for $CONFFILE"
+# genConfFile() must be run before attempting to compare confFiles, but after $localWorkDir is set.
+genConfFile
+# Checks if confFile exists and have read and write permissions.
+if [ -f "$confFile" ];then
+	if [ ! -w "$confFile" ] || [ ! -r "$confFile" ];then
+		errorExit "No read or write permissions for $confFile"
 	fi
-# Sanitize conffile so that only sane line exists. TODO: Only accepted  variables that we want?
-	if BadContent=$(egrep -v \
+# Sanitize confFile so that only sane line exists. TODO: Only accepted  variables that we want?
+	if badContent=$(egrep -v \
 	-e "^([A-Za-z_]+=[A-Za-z0-9/_~. ]+)?$" \
 	-e "^#" \
-	-e "^FILES2COPY[[][0-9]+[]]='[A-Za-z0-9/_~. ]+'" \
-	$CONFFILE);then 
-		dbg "$CONFFILE is not sanitized: $BadContent"
-		errorExit "$CONFFILE contains bad things: $BadContent"
+	-e "^files2copy[[][0-9]+[]]='[A-Za-z0-9/_~. ]+'" \
+	$confFile);then 
+		dbg "$confFile is not sanitized: $badContent"
+		errorExit "$confFile contains bad things: $badContent"
 	fi
-# Matches variables in default conffile and conffile. Only counts VARIABLE_NAME=variable. Variables must be set
-	if [ "$(egrep -c '^[^#]' $CONFFILE)" -eq "$CONFFILEVARIBLES" ]; then
-		dbg "Conffile ($CONFFILE) ok, using it."
+# Matches variables in default confFile and confFile. Only counts VARIABLE_NAME=variable. Variables must be set
+	if [ "$(egrep -c '^[^#]' $confFile)" -eq "$confFileVariables" ]; then
+		dbg "confFile ($confFile) ok, using it."
 	else
-# Pre source conffile, to be able to use settings from the old conffile.
-		. $CONFFILE
-# Regenerate conffile, using sourced values.
+# Pre source confFile, to be able to use settings from the old confFile.
+		. $confFile
+# Regenerate confFile, using sourced values.
 		genConffile
-		dbg "Pre sourced conffile: $CONFFILE"
-		dbg "$CONFFILE has not the same numer of values as built in, overwriting using the values from pre sourced conffile."
-# Create conffile
-		writeConffile "Found no conffile, created $CONFFILE. Edit this before running $MYNAME again."
+		dbg "Pre sourced confFile: $confFile"
+		dbg "$confFile has not the same numer of values as built in, overwriting using the values from pre sourced confFile."
+# Create confFile
+		writeConffile "Found no confFile, created $confFile. Edit this before running $myName again."
 	fi
 else
-	dbg "\$CONFFILE ($CONFFILE) does not exist, creating."
-	writeConffile
-	errorExit "Created $CONFFILE, before running $MYNAME again, edit $CONFFILE"
+	dbg "\$confFile ($confFile) does not exist, creating."
+	writeConfFile
+	errorExit "Created $confFile, before running $myName again, edit $confFile"
 fi
 
-# Source conffile.
-foldit echo -n "Loading configuration in $CONFFILE"
-if . $CONFFILE;then
+# Source confFile.
+foldIt echo -n "Loading configuration in $confFile"
+if . $confFile;then
 	ok
-	dbg "Sourced conffile: $CONFFILE"
+	dbg "Sourced confFile: $confFile"
 else
-	failed "Could not source conffile: $CONFFILE"
+	failed "Could not source confFile: $confFile"
 fi
 showVariables
 
 # Some verbose things
-foldit echo ""
-foldit echo "Using $L_REPO as repo."
-foldit echo "Using version: $VERSION "
+foldIt echo ""
+foldIt echo "Using $localWorkDir as repo."
+foldIt echo "Using version: $version "
 
-# Create $L_REPO directory
-createDir $L_REPO
+# Create $localWorkDir directory
+createDir $localWorkDir
 
 # Download new get_env and repository as zip from github
 echo ""
@@ -642,55 +641,55 @@ downloadAndUnzip $get_envGitServer $get_envGitUser $get_envRepository $get_envVe
 # Check if downloaded get_env is newer, then replace and restart
 get_envDiffAndRestart
 # Download repository with files
-downloadAndUnzip $gitServer $gitUser $repository $VERSION
+downloadAndUnzip $gitServer $gitUser $repository $version
 
-# TODO: Move this to conffile
+# TODO: Move this to confFile
 # Creates directories
 createDir $HOME/sshfs
 
-# Call copyFiles() for all values in array $FILES2COPY
-for array in "${FILES2COPY[@]}";do
+# Call copyFiles() for all values in array $files2copy
+for array in "${files2copy[@]}";do
 	copyFiles $array
 done
 
 # Send to debug which files where new or updated
-dbg "\$NEW_FILES: $NEW_FILES"
-dbg "\$UPDATED_FILES: $UPDATED_FILES"
+dbg "\$newFiles: $newFiles"
+dbg "\$updatedFiles: $updatedFiles"
 
 
 # Specific host configuration
 # TODO: Have non yet.
 
 # Special things for new or updated files:
-for file in $NEW_FILES $UPDATED_FILES; do
+for file in $newFiles $updatedFiles; do
 	case $file in
 		 .bashrc)
 # There was a change in .bashrc and need to source.
 			echo ""
-			foldit echo -e '${INFO}Noticed change in $(echo ~)/.bashrc${END}'
+			foldIt echo -e '${INFO}Noticed change in $(echo ~)/.bashrc${END}'
 			echo ""
-			foldit echo -e '${INFO}You need to source .bashrc to get the new functions in this shell${END}'
-			foldit echo "eg:  . ~/.bashrc"
+			foldIt echo -e '${INFO}You need to source .bashrc to get the new functions in this shell${END}'
+			foldIt echo "eg:  . ~/.bashrc"
 			bar
-			PROMPT_SOURCE=yes
+			promptSourceConfigFile=yes
 			;;
 		.bashrc.*)
 # There was a change in one of .bashrc.{files} and need to source .bashrc 
-			if [ -z "$PROMPT_SOURCE" ]; then
-				foldit echo ""
-				foldit echo -e '${INFO}Noticed change in $(echo ~)/${file}${END}'
-				foldit echo ""
-				foldit echo -e '${INFO}You need to source .bashrc to get the new functions in this shell${END}'
-				foldit echo "eg:  . ~/.bashrc"
+			if [ -z "$promptSourceConfigFile" ]; then
+				foldIt echo ""
+				foldIt echo -e '${INFO}Noticed change in $(echo ~)/${file}${END}'
+				foldIt echo ""
+				foldIt echo -e '${INFO}You need to source .bashrc to get the new functions in this shell${END}'
+				foldIt echo "eg:  . ~/.bashrc"
 				bar
-				PROMPT_SOURCE=yes
+				promptSourceConfigFile=yes
 			fi
 		;;
 	esac
 done
 
 # # Special things for new files:
-# for file in $NEW_FILES; do
+# for file in $newFiles; do
 #	case $file in
 #	)
 #	;;
@@ -698,15 +697,15 @@ done
 # done
 # 
 # # Special things for updated files:
-# for file in $UPDATED_FILES; do
+# for file in $updatedFiles; do
 #	case $file in
 #	)
 #	;;
 #	esac
 # done
 
-if [ -z "$NEW_FILES" ] && [ -z "$UPDATED_FILES" ];then
-	foldit echo "No new or changed files."
+if [ -z "$newFiles" ] && [ -z "$updatedFiles" ];then
+	foldIt echo "No new or changed files."
 fi
 
 # Report to webbserver my status
@@ -716,5 +715,5 @@ report
 cleanup
 
 # End
-dbg "End of script, debuglog saved in $DEBUGLOG"
-foldit echo -e '${INFO}The environment is now up to date.${END}'
+dbg "End of script, debugLog saved in $debugLog"
+foldIt echo -e '${INFO}The environment is now up to date.${END}'
