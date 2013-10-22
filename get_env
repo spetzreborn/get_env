@@ -586,7 +586,7 @@ if [ -f "$confFile" ];then
 	if badContent=$(egrep -v \
 	-e "^([A-Za-z_]+=[A-Za-z0-9/_~. ]+)?$" \
 	-e "^#" \
-	-e "^files2copy[[][0-9]+[]]='[A-Za-z0-9/_~. ]+'" \
+	-e "^files2copy[[][0-9]+[]]='[A-Za-z0-9/_~. $]+'" \
 	$confFile);then 
 		dbg "$confFile is not sanitized: $badContent"
 		errorExit "$confFile contains bad things: $badContent"
@@ -662,7 +662,7 @@ if [ -f "${hostConf}" ];then
 	dbg "Found hostspecific conf"
 	if badContent=$(egrep -v \
 	-e "^#" \
-	-e "^files2copy[[][0-9]+[]]='[A-Za-z0-9/_~. ]+'" \
+	-e "^files2copy[[][0-9]+[]]='[A-Za-z0-9/_~. $]+'" \
 	$hostConf);then 
 		dbg "$hostConf is not sanitized: $badContent"
 		errorExit "$hostConf contains bad things: $badContent"
