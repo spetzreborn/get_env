@@ -174,7 +174,7 @@ gitUser=$gitUser&
 repository=$repository&
 version=$version&
 myName=$myName&
-localWorkDir=$L_REPO&
+localWorkDir=$localWorkDir&
 newFiles=$newFiles&
 updatedFiles=$updatedFiles
 createdDirs=$createdDirs&
@@ -580,7 +580,7 @@ fi
 # If argument -r was not given, set default $localWorkDir to absolute path
 if [ -z "$localWorkDir" ]; then
 	localWorkDir="$(echo ~/.${myName})"
-	dbg 'Setting defult $localWorkDir to absolut path: ' "$L_REPO"
+	dbg 'Setting defult $localWorkDir to absolut path: ' "$localWorkDir"
 fi
 
 # genConfFile() must be run before attempting to compare confFiles, but after $localWorkDir is set.
