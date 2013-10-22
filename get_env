@@ -562,15 +562,6 @@ fi
 dbg "I have started, read variables and functions and are on line:$LINENO"
 showVariables
 
-# Check for internet connection
-dbg "Checking for internet connection . . ."
-inetCon=$(host "$get_envGitServer")
-inetErr=$?
-dbg "Checked internet connection by 'host google.com' answer:${inetCon}"
-if [ "$inetErr" != "0" ];then
-	errorExit "No internet connection or none functional dns. Exiting"
-fi
-
 # Verify write permissions in homedirectory
 if [ ! -w ~ ];then
 	errorExit "Have no write permissions in $(echo ~)"
@@ -632,6 +623,15 @@ showVariables
 foldIt echo ""
 foldIt echo "Using $localWorkDir as repo."
 foldIt echo "Using version: $version "
+
+# Check for internet connection
+dbg "Checking for internet connection . . ."
+inetCon=$(host "$get_envGitServer")
+inetErr=$?
+dbg "Checked internet connection by 'host google.com' answer:${inetCon}"
+if [ "$inetErr" != "0" ];then
+	errorExit "No internet connection or none functional dns. Exiting"
+fi
 
 # Create $localWorkDir directory
 createDir $localWorkDir
