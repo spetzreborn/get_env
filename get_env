@@ -199,6 +199,7 @@ errorExit() {
 	echo -e "${warning}${myName}: ${1:-"Unknown Error"}${end}" 1>&2
 	dbg  "${myName}: ${1:-"Unknown Error"}"
 	report "error=$1"
+	cleanup
 	exit 1
 }
 
@@ -656,7 +657,16 @@ for array in "${files2copy[@]}";do
 done
 
 # Specific host configuration
-if [ -f "${localWorkDir}/${repository}/${repository}-${version}/${HOSTNAME}/conf" ];then
+hostConf="${localWorkDir}/${repository}/${repository}-${version}/${HOSTNAME}/conf"
+if [ -f "${hostConf}" ];then
+	dbg "Found hostspecific conf"
+	if badContent=$(egrep -v \
+	-e "^#" \
+	-e "^files2copy[[][0-9]+[]]='[A-Za-z0-9/_~. ]+'" \
+	$hostConf);then 
+		dbg "$hostConf is not sanitized: $badContent"
+		errorExit "$hostConf contains bad things: $badContent"
+	fi
 	# Source hostspecific conf and run copyFiles()
 	. "${localWorkDir}/${repository}/${repository}-${version}/${HOSTNAME}/conf"
 	for array in "${files2copy[@]}";do
