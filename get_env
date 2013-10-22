@@ -655,13 +655,18 @@ for array in "${files2copy[@]}";do
 	copyFiles $array
 done
 
+# Specific host configuration
+if [ -f "${localWorkDir}/${repository}/${repository}-${version}/${HOSTNAME}/conf" ];then
+	# Source hostspecific conf and run copyFiles()
+	. "${localWorkDir}/${repository}/${repository}-${version}/${HOSTNAME}/conf"
+	for array in "${files2copy[@]}";do
+		copyFiles $array
+	done
+fi
+
 # Send to debug which files where new or updated
 dbg "\$newFiles: $newFiles"
 dbg "\$updatedFiles: $updatedFiles"
-
-
-# Specific host configuration
-# TODO: Have non yet.
 
 # Special things for new or updated files:
 for file in $newFiles $updatedFiles; do
