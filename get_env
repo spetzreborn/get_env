@@ -34,7 +34,7 @@ depends() {
 	done
 }
 
-depends wget logger tput cp rm cat ln unlink diff host mkdir grep egrep sed fold unzip rsync
+depends wget logger tput cp rm cat diff host mkdir grep egrep sed fold unzip rsync
 
 
 # The script name
@@ -174,7 +174,7 @@ gitUser=$gitUser&
 repository=$repository&
 version=$version&
 myName=$myName&
-localWorkDir=$L_REPO&
+localWorkDir=$localWorkDir&
 newFiles=$newFiles&
 updatedFiles=$updatedFiles
 createdDirs=$createdDirs&
@@ -199,6 +199,7 @@ errorExit() {
 	echo -e "${warning}${myName}: ${1:-"Unknown Error"}${end}" 1>&2
 	dbg  "${myName}: ${1:-"Unknown Error"}"
 	report "error=$1"
+	cleanup
 	exit 1
 }
 
@@ -562,15 +563,6 @@ fi
 dbg "I have started, read variables and functions and are on line:$LINENO"
 showVariables
 
-# Check for internet connection
-dbg "Checking for internet connection . . ."
-inetCon=$(host google.com)
-inetErr=$?
-dbg "Checked internet connection by 'host google.com' answer:${inetCon}"
-if [ "$inetErr" != "0" ];then
-	errorExit "No internet connection or none functional dns. Exiting"
-fi
-
 # Verify write permissions in homedirectory
 if [ ! -w ~ ];then
 	errorExit "Have no write permissions in $(echo ~)"
@@ -580,7 +572,7 @@ fi
 # If argument -r was not given, set default $localWorkDir to absolute path
 if [ -z "$localWorkDir" ]; then
 	localWorkDir="$(echo ~/.${myName})"
-	dbg 'Setting defult $localWorkDir to absolut path: ' "$L_REPO"
+	dbg 'Setting defult $localWorkDir to absolut path: ' "$localWorkDir"
 fi
 
 # genConfFile() must be run before attempting to compare confFiles, but after $localWorkDir is set.
@@ -633,6 +625,15 @@ foldIt echo ""
 foldIt echo "Using $localWorkDir as repo."
 foldIt echo "Using version: $version "
 
+# Check for internet connection
+dbg "Checking for internet connection . . ."
+inetCon=$(host "$get_envGitServer")
+inetErr=$?
+dbg "Checked internet connection by 'host google.com' answer:${inetCon}"
+if [ "$inetErr" != "0" ];then
+	errorExit "No internet connection or none functional dns. Exiting"
+fi
+
 # Create $localWorkDir directory
 createDir $localWorkDir
 
@@ -655,13 +656,27 @@ for array in "${files2copy[@]}";do
 	copyFiles $array
 done
 
+# Specific host configuration
+hostConf="${localWorkDir}/${repository}/${repository}-${version}/${HOSTNAME}/conf"
+if [ -f "${hostConf}" ];then
+	dbg "Found hostspecific conf"
+	if badContent=$(egrep -v \
+	-e "^#" \
+	-e "^files2copy[[][0-9]+[]]='[A-Za-z0-9/_~. ]+'" \
+	$hostConf);then 
+		dbg "$hostConf is not sanitized: $badContent"
+		errorExit "$hostConf contains bad things: $badContent"
+	fi
+	# Source hostspecific conf and run copyFiles()
+	. "${localWorkDir}/${repository}/${repository}-${version}/${HOSTNAME}/conf"
+	for array in "${files2copy[@]}";do
+		copyFiles $array
+	done
+fi
+
 # Send to debug which files where new or updated
 dbg "\$newFiles: $newFiles"
 dbg "\$updatedFiles: $updatedFiles"
-
-
-# Specific host configuration
-# TODO: Have non yet.
 
 # Special things for new or updated files:
 for file in $newFiles $updatedFiles; do
