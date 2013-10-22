@@ -564,7 +564,7 @@ showVariables
 
 # Check for internet connection
 dbg "Checking for internet connection . . ."
-inetCon=$(host google.com)
+inetCon=$(host "$get_envGitServer")
 inetErr=$?
 dbg "Checked internet connection by 'host google.com' answer:${inetCon}"
 if [ "$inetErr" != "0" ];then
