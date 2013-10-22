@@ -34,7 +34,7 @@ depends() {
 	done
 }
 
-depends wget logger tput cp rm cat ln unlink diff host mkdir grep egrep sed fold unzip rsync
+depends wget logger tput cp rm cat diff host mkdir grep egrep sed fold unzip rsync
 
 
 # The script name
