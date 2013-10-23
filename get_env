@@ -301,8 +301,8 @@ copyFiles() {
 	do
 # If the destfile exist ...
 		if [ -f ${toDir}/${file} ]; then 
-# .. diff it with the source file .. This magic diff ignores comments. Both .vimrc and bash comments.
-			if ! diff -q -I '^# .*' -I '^" .*' ${localWorkDir}/${repository}/${repository}-${version}/${fromDir}/${file} ${toDir}/${file} >/dev/null 2>&1; then
+# .. diff it with the source file
+			if ! diff -q  ${localWorkDir}/${repository}/${repository}-${version}/${fromDir}/${file} ${toDir}/${file} >/dev/null 2>&1; then
 # .. And if it is not the same, copy to backup file:
 # TODO: gzip backup? Number of backups? Better structure?
 				createDir "${localWorkDir}/backup"
@@ -586,7 +586,7 @@ if [ -f "$confFile" ];then
 	if badContent=$(egrep -v \
 	-e "^([A-Za-z_]+=[A-Za-z0-9/_~. ]+)?$" \
 	-e "^#" \
-	-e "^files2copy[[][0-9]+[]]='[A-Za-z0-9/_~. $]+'" \
+	-e "^files2copy[[][0-9]+[]]='?\"?[A-Za-z0-9/_~. $]+'?\"?" \
 	$confFile);then 
 		dbg "$confFile is not sanitized: $badContent"
 		errorExit "$confFile contains bad things: $badContent"
@@ -662,7 +662,7 @@ if [ -f "${hostConf}" ];then
 	dbg "Found hostspecific conf"
 	if badContent=$(egrep -v \
 	-e "^#" \
-	-e "^files2copy[[][0-9]+[]]='[A-Za-z0-9/_~. $]+'" \
+	-e "^files2copy[[][0-9]+[]]='?\"?[A-Za-z0-9/_~. $]+'?\"?" \
 	$hostConf);then 
 		dbg "$hostConf is not sanitized: $badContent"
 		errorExit "$hostConf contains bad things: $badContent"
