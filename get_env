@@ -494,11 +494,11 @@ get_envDiffAndRestart() {
 			fi
 			foldIt echo -e '${INFO}Executing new $(echo ~)/${myName}${END}'
 			bar
-			echo
-			echo 
+			foldIt echo ""
+			foldIt echo ""
 			stars
-			echo 
-			echo
+			foldIt echo ""
+			foldIt echo ""
 		# Makes next script start with debug if this instance was started with debug.
 			if [ -n "$debug" ];then
 				cleanup
