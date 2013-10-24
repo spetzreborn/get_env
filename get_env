@@ -18,11 +18,7 @@
 
 # Refactorded 2013 for git
 
-# TODO: Add silent and quietmode for suppressed output, e.g when run from cron
 # TODO: Make "dryrun" download and unpack, but not change any files or create any directories.
-
-# Exit on error
-# set -e
 
 # This functions starts the script so all functions don't need to be sourced before exiting.
 depends() {
@@ -69,6 +65,7 @@ failedFile=$(mktemp /tmp/${myName}.XXXXXX)
 downloadDir=$(mktemp -d /tmp/${myName}.XXXXXX)
 debug=""
 noGet_envUpdate=""
+quietMode=""
 ddate=$(date +'%Y-%m-%dT%H:%M:%S')
 
 ###  Functions
@@ -103,29 +100,37 @@ foldIt() {
 	input="$@"
 	maxwidth=$(($(tput cols) - 15))
 	dbg "$(eval $input)"
-	if [ -z "$debug" ];then
+	if [ -z "$debug" ] && [ -z "$quietMode" ];then
 		eval "$input" | fold -s -w $maxwidth
 	fi
 }
 
 # Function to echo out a coloured bar between sections.
 bar() {
-	echo -e "${blue}*-----------*${end}"
+	if [ -z "$quietMode" ];then
+		echo -e "${blue}*-----------*${end}"
+	fi
 	}
 
 # Function to echo out coloured stars between sections.
 stars() {
-	echo -e "${boldRed}*************${end}"
+	if [ -z "$quietMode" ];then
+		echo -e "${boldRed}*************${end}"
+	fi
 	}
 
 # Function to echo out "ok" after a check
 ok() {
-	$tprint; echo -e "${green}[OK]${end}"
+	if [ -z "$quietMode" ] || [ -n "$debug" ];then
+		$tprint; echo -e "${green}[OK]${end}"
+	fi
 	}
 
 # Function to echo out "failed" after a check, and exit
 failed() {
-	$tprint; echo -e "${warning}[FAILED]${end}"
+	if [ -z "$quietMode" ] || [ -n "$debug" ];then
+		$tprint; echo -e "${warning}[FAILED]${end}"
+	fi
 	echo -e "${warning}$@${end}"
 	cat $failedFile
 	dbg "$*" "FAILED FILE:" $(cat $failedFile)
@@ -134,7 +139,9 @@ failed() {
 	
 # Non Critical failed.
 ncfailed() {
-	$tprint; echo -e "${warning}[FAILED]${end}"
+	if [ -z "$quietMode" ] || [ -n "$debug" ];then
+		$tprint; echo -e "${warning}[FAILED]${end}"
+	fi
 	if [ -n "$1" ]; then
 		foldIt echo -e "INFO: $@"
 	fi
@@ -173,6 +180,10 @@ gitServer=$gitServer&
 gitUser=$gitUser&
 repository=$repository&
 version=$version&
+quietMode=$quietMode&
+debug=$debug&
+debugLog=$debugLog&
+noGet_envUpdate=$noGet_envUpdate&
 myName=$myName&
 localWorkDir=$localWorkDir&
 newFiles=$newFiles&
@@ -180,7 +191,7 @@ updatedFiles=$updatedFiles
 createdDirs=$createdDirs&
 ${awn}"'
 
-		echo -n "Reporting to webbserver"
+		foldIt echo -n "Reporting to webbserver"
 		if eval $doReport; then
 			ok
 			dbg "Reported to webbserver"
@@ -458,6 +469,8 @@ showVariables() {
 	done
 	dbg "\$debug:$debug"
 	dbg "\$debugLog: $debugLog"
+	dbg "\$noGet_envUpdate: $noGet_envUpdate"
+	dbg "\$quietMode: $quietMode"
 }
 
 # Test if there was a change in get_env - and is needed to be run again.
@@ -467,11 +480,10 @@ get_envDiffAndRestart() {
 	dbg "${FUNCNAME}() was called."
 	get_envDownloaded="${localWorkDir}/${get_envRepository}/${get_envRepository}-${get_envVersion}/${myAbsoluteName}"
 	if ! diff -q -I '^# .*'  ~/$myName ${get_envDownloaded} >/dev/null 2>&1; then
-		echo -e "" 
 		foldIt echo -e '${INFO}Found newer	 $myName ${END}'
 		if [ -n "$noGet_envUpdate" ]; then
 			dbg "\$noGet_envUpdate is set, dont replace or run newer" 
-			foldIt echo "Do not run newer ${myName}"
+			foldIt echo "$noGet_envUpdate is invoked, do not run newer ${myName}"
 		else
 			foldIt echo -en "Replacing	   $(echo ~)/${myName}"
 			if cp ${get_envDownloaded} ~/${myName}; then
@@ -482,24 +494,22 @@ get_envDiffAndRestart() {
 			fi
 			foldIt echo -e '${INFO}Executing new $(echo ~)/${myName}${END}'
 			bar
-			echo
-			echo 
+			foldIt echo ""
+			foldIt echo ""
 			stars
-			echo 
-			echo
+			foldIt echo ""
+			foldIt echo ""
 		# Makes next script start with debug if this instance was started with debug.
 			if [ -n "$debug" ];then
-				if [ -f "$debugLog" ];then
-					cleanup
-					exec ~/${myName} -r "$localWorkDir" -d -l "$debugLog"
-				else
-					cleanup
-					exec ~/${myName} -r "$localWorkDir" -d
-				fi
+				cleanup
+				exec ~/${myName} -r "$localWorkDir" "$quietMode" "$noGet_envUpdate" "$debug" -l "$debugLog"
 			else
-				exec ~/${myName} -r "$localWorkDir"
+				cleanup
+				exec ~/${myName} -r "$localWorkDir" "$quietMode" "$noGet_envUpdate"
 			fi
 		fi
+	else
+		foldIt echo "Already running latest $myName"
 	fi
 }
 
@@ -524,24 +534,27 @@ if [ "$TERM" = "screen" ];then
 	dbg "\$TERM was screen, setting it to xterm for running in this script"
 fi
 
-while getopts ":hudr:l:" opt; do
+while getopts ":hudqr:l:" opt; do
 	case $opt in
 		r)	
 		localWorkDir=$(readlink -f $OPTARG)
 		;;	
 		d)
-		debug=1
+		debug="-d"
 		echo "Debug is set, saving debugLog to: $debugLog"
 		;;
 		l)
 		debugLog=$(readlink -f $OPTARG)
 		;;
 		u)
-		noGet_envUpdate="1"
+		noGet_envUpdate="-u"
 		;;
 		h) 
 		helpMenu 
 		;;	
+		q)
+		quietMode="-q"
+		;;
 		\?) 
 		echo "Invalid option: -$OPTARG" >&2
 		exit 1
@@ -598,7 +611,7 @@ if [ -f "$confFile" ];then
 # Pre source confFile, to be able to use settings from the old confFile.
 		. $confFile
 # Regenerate confFile, using sourced values.
-		genConffile
+		genConfFile
 		dbg "Pre sourced confFile: $confFile"
 		dbg "$confFile has not the same numer of values as built in, overwriting using the values from pre sourced confFile."
 # Create confFile
@@ -621,7 +634,6 @@ fi
 showVariables
 
 # Some verbose things
-foldIt echo ""
 foldIt echo "Using $localWorkDir as repo."
 foldIt echo "Using version: $version "
 
@@ -637,15 +649,14 @@ fi
 # Create $localWorkDir directory
 createDir $localWorkDir
 
-# Download new get_env and repository as zip from github
-echo ""
+# Download latest get_env and repository as zip from github
 bar
-
-# Download latest get_env
 downloadAndUnzip $get_envGitServer $get_envGitUser $get_envRepository $get_envVersion
 # Check if downloaded get_env is newer, then replace and restart
+bar
 get_envDiffAndRestart
 # Download repository with files
+bar
 downloadAndUnzip $gitServer $gitUser $repository $version
 
 # Creates directories from confFile
