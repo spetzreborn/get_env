@@ -219,11 +219,12 @@ helpMenu() {
 cat <<EOF
 "Useage: ./$0 arguments"
 	options:
-	-h	 This helptext
-	-r repo  Dir to create and download repo to, default same name as my filename (${myName})
 	-d	 Debug - shows whats happening and saves debugLog in the form /tmp/${myName}.debugLog.2013-10-21T10:42:37.XXXXXXXXX
-	-l	If debug is used, use this file as debugLog.
-	-u  Do not update ${myName} even if newer is found
+	-l	 If debug is used, use this file as debugLog.
+	-h	 This helptext
+	-q   Quietmode - no output exept errors
+	-r   Directory to create and download repo to, default same name as my filename (${myName})
+	-u   Do not update ${myName} even if newer is found
 
 EOF
 	exit 0
@@ -536,33 +537,33 @@ fi
 
 while getopts ":hudqr:l:" opt; do
 	case $opt in
-		r)	
-		localWorkDir=$(readlink -f $OPTARG)
-		;;	
 		d)
 		debug="-d"
 		echo "Debug is set, saving debugLog to: $debugLog"
 		;;
+		h) 
+		helpMenu 
+		;;
 		l)
 		debugLog=$(readlink -f $OPTARG)
+		;;
+		q)
+		quietMode="-q"
+		;;
+		r)	
+		localWorkDir=$(readlink -f $OPTARG)
 		;;
 		u)
 		noGet_envUpdate="-u"
 		;;
-		h) 
-		helpMenu 
-		;;	
-		q)
-		quietMode="-q"
-		;;
 		\?) 
 		echo "Invalid option: -$OPTARG" >&2
 		exit 1
-		;;	
+		;;
 		:)	
 		echo "Option -$OPTARG requires an argument." >&2
 		exit 1
-		;;	
+		;;
 	esac
 done
 
