@@ -69,9 +69,10 @@ ddate=$(date +'%Y-%m-%dT%H:%M:%S')
 
 # Function to print GNU disclaimer
 gnuLicens() {
-cat <<EOF
+	dbg "${FUNCNAME}() was called, arg: $*"
+	cat <<EOF
 
-$myName Copyright (C) 2013 Björn Bohman
+    $myName Copyright (C) 2013 Björn Bohman
 
     This program is free software: you can redistribute it and/or modify
     it under the terms of the GNU General Public License as published by
@@ -86,7 +87,7 @@ $myName Copyright (C) 2013 Björn Bohman
     You should have received a copy of the GNU General Public License
     along with this program.  If not, see [http://www.gnu.org/licenses/].
 
-For more information see: https://github.com/spetzreborn/get_env
+    For more information see: https://github.com/spetzreborn/get_env
 
 
 EOF
@@ -162,7 +163,7 @@ dbg() {
 # Reports to webbserver
 # Takes arguments in:  var0=value0 var1=value1
 report() {
-	dbg "${FUNCNAME}() was called."
+	dbg "${FUNCNAME}() was called, arg: $*"
 	if [ -n "$reportURL" ];then
 		dbg "\$reportUrl is set, try to reporting"
 		i=0
