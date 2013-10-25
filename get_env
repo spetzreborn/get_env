@@ -16,10 +16,6 @@
 # along with this program.  If not, see {http://www.gnu.org/licenses/}.
 #
 
-# Refactorded 2013 for git
-
-# TODO: Make "dryrun" download and unpack, but not change any files or create any directories.
-
 # This functions starts the script so all functions don't need to be sourced before exiting.
 depends() {
 	for app in $@;do
@@ -66,6 +62,7 @@ downloadDir=$(mktemp -d /tmp/${myName}.XXXXXX)
 debug=""
 noGet_envUpdate=""
 quietMode=""
+dryrun=""
 ddate=$(date +'%Y-%m-%dT%H:%M:%S')
 
 ###  Functions
@@ -126,6 +123,13 @@ ok() {
 	fi
 	}
 
+# Function to echo out "Dryrun" after a check
+dryRun() {
+	if [ -z "$quietMode" ] || [ -n "$debug" ];then
+		$tprint; echo -e "${yellow}[Dryrun]${end}"
+	fi
+	}
+
 # Function to echo out "failed" after a check, and exit
 failed() {
 	if [ -z "$quietMode" ] || [ -n "$debug" ];then
@@ -181,6 +185,7 @@ gitUser=$gitUser&
 repository=$repository&
 version=$version&
 quietMode=$quietMode&
+dryrun=$dryrun&
 debug=$debug&
 debugLog=$debugLog&
 noGet_envUpdate=$noGet_envUpdate&
@@ -219,9 +224,10 @@ helpMenu() {
 cat <<EOF
 "Useage: ./$0 arguments"
 	options:
-	-d	 Debug - shows whats happening and saves debugLog in the form /tmp/${myName}.debugLog.2013-10-21T10:42:37.XXXXXXXXX
-	-l	 If debug is used, use this file as debugLog.
-	-h	 This helptext
+	-d   Debug - shows whats happening and saves debugLog in the form /tmp/${myName}.debugLog.2013-10-21T10:42:37.XXXXXXXXX
+	-h   This helptext
+	-l   If debug is used, use this file as debugLog.
+	-n   Dryrun - dont replace files, just show witch will be replaced.
 	-q   Quietmode - no output exept errors
 	-r   Directory to create and download repo to, default same name as my filename (${myName})
 	-u   Do not update ${myName} even if newer is found
@@ -306,55 +312,67 @@ copyFiles() {
 	shift
 	local toDir=$1
 	shift
-# Test if $toDir exists
+	# Test if $toDir exists
 	createDir $toDir
 
 	for file in $*
 	do
-# If the destfile exist ...
+		# If the destfile exist ...
 		if [ -f ${toDir}/${file} ]; then 
-# .. diff it with the source file
+			# .. diff it with the source file
 			if ! diff -q  ${localWorkDir}/${repository}/${repository}-${version}/${fromDir}/${file} ${toDir}/${file} >/dev/null 2>&1; then
-# .. And if it is not the same, copy to backup file:
-# TODO: gzip backup? Number of backups? Better structure?
-				createDir "${localWorkDir}/backup"
-				foldIt echo -n "Found difference in ${toDir}/${file}, making backup"
-				if [ $(echo $file | cut -c1) == "." ];then
-					if cp ${toDir}/${file} ${localWorkDir}/backup/dot${file}.${ddate}; then
-						ok
-						dbg "Backed up: ${localWorkDir}/backup/${file}.${ddate}"
+				if [ -z "$dryrun" ];then
+					# .. And if it is not the same, copy to backup file:
+					# TODO: gzip backup? Number of backups? Better structure?
+					createDir "${localWorkDir}/backup"
+					foldIt echo -n "Found difference in ${toDir}/${file}, making backup"
+					if [ $(echo $file | cut -c1) == "." ];then
+						if cp ${toDir}/${file} ${localWorkDir}/backup/dot${file}.${ddate}; then
+							ok
+							dbg "Backed up: ${localWorkDir}/backup/${file}.${ddate}"
+						else
+							ncfailed
+						fi
 					else
-						ncfailed
-					fi
-				else
-					if cp ${toDir}/${file} ${localWorkDir}/backup/${file}.${ddate}; then
-						ok
-						dbg "Backed up: ${localWorkDir}/backup/${file}.${ddate}"
-					else
-						ncfailed
+						if cp ${toDir}/${file} ${localWorkDir}/backup/${file}.${ddate}; then
+							ok
+							dbg "Backed up: ${localWorkDir}/backup/${file}.${ddate}"
+						else
+							ncfailed
+						fi
 					fi
 				fi
-# .. Copy the new file
+				# .. Copy the new file
 				foldIt echo -n "Copy new ${toDir}/$file"
-				if cp ${localWorkDir}/${repository}/${repository}-${version}/${fromDir}/${file} ${toDir}/${file}; then
-					ok
-					dbg "Updated file: ${toDir}/${file} copied ok"
-					updatedFiles="${updatedFiles}${file} "
+				if [ -n "$dryrun" ];then
+					dryRun
+					dryrunUpdatedFiles="${dryrunUpdatedFiles}${file} "
 				else
-					failed
+					if cp ${localWorkDir}/${repository}/${repository}-${version}/${fromDir}/${file} ${toDir}/${file}; then
+						ok
+						dbg "Updated file: ${toDir}/${file} copied ok"
+						updatedFiles="${updatedFiles}${file} "
+					else
+						failed
+					fi
 				fi
 			else
 				dbg "${file} are up to date"
 			fi
-# If the to_file dose not exist, just copy it.
+		# If the to_file dose not exist, just copy it.
 		else
 			foldIt echo -n "Copy new ${toDir}/${file}"
-			if cp ${localWorkDir}/${repository}/${repository}-${version}/${fromDir}/${file} ${toDir}/${file} >/dev/null 2>&1; then
-				ok
-				dbg "New file: ${toDir}/${file} copied ok"
-				newFiles="${newFiles}${file} "
+			if [ -n "$dryrun" ];then
+				dryRun
+				dryrunNewFiles="${dryrunNewFiles}${file} "
 			else
-				failed
+				if cp ${localWorkDir}/${repository}/${repository}-${version}/${fromDir}/${file} ${toDir}/${file} >/dev/null 2>&1; then
+					ok
+					dbg "New file: ${toDir}/${file} copied ok"
+					newFiles="${newFiles}${file} "
+				else
+					failed
+				fi
 			fi
 		fi
 	done
@@ -472,6 +490,7 @@ showVariables() {
 	dbg "\$debugLog: $debugLog"
 	dbg "\$noGet_envUpdate: $noGet_envUpdate"
 	dbg "\$quietMode: $quietMode"
+	dbg "\$dryrun:$dryrun"
 }
 
 # Test if there was a change in get_env - and is needed to be run again.
@@ -482,9 +501,9 @@ get_envDiffAndRestart() {
 	get_envDownloaded="${localWorkDir}/${get_envRepository}/${get_envRepository}-${get_envVersion}/${myAbsoluteName}"
 	if ! diff -q -I '^# .*'  ~/$myName ${get_envDownloaded} >/dev/null 2>&1; then
 		foldIt echo -e '${INFO}Found newer	 $myName ${END}'
-		if [ -n "$noGet_envUpdate" ]; then
-			dbg "\$noGet_envUpdate is set, dont replace or run newer" 
-			foldIt echo "$noGet_envUpdate is invoked, do not run newer ${myName}"
+		if [ -n "$noGet_envUpdate" ] || [ -n "$dryrun" ]; then
+			dbg "$noGet_envUpdate $dryrun is set, dont replace or run newer" 
+			foldIt echo "Do not runner newer ${myName}, $noGet_envUpdate $dryrun is invoked."
 		else
 			foldIt echo -en "Replacing	   $(echo ~)/${myName}"
 			if cp ${get_envDownloaded} ~/${myName}; then
@@ -535,7 +554,7 @@ if [ "$TERM" = "screen" ];then
 	dbg "\$TERM was screen, setting it to xterm for running in this script"
 fi
 
-while getopts ":hudqr:l:" opt; do
+while getopts ":dhl:nqr:u" opt; do
 	case $opt in
 		d)
 		debug="-d"
@@ -546,6 +565,9 @@ while getopts ":hudqr:l:" opt; do
 		;;
 		l)
 		debugLog=$(readlink -f $OPTARG)
+		;;
+		n)
+		dryrun="-n"
 		;;
 		q)
 		quietMode="-q"
@@ -734,8 +756,14 @@ done
 #	esac
 # done
 
-if [ -z "$newFiles" ] && [ -z "$updatedFiles" ];then
+if [ -z "$newFiles" ] && [ -z "$updatedFiles" ] && [ -z "$dryrun" ];then
 	foldIt echo "No new or changed files."
+fi
+
+if [ -z "$dryruNewFiles" ] && [ -z "$dryrunUpdatedFiles" ];then
+	foldIt echo "No files should been updated."
+else
+	foldIt echo "These files should have been changed: $dryruNewFiles $dryrunUpdatedFiles"
 fi
 
 # Report to webbserver my status
@@ -746,4 +774,6 @@ cleanup
 
 # End
 dbg "End of script, debugLog saved in $debugLog"
-foldIt echo -e '${INFO}The environment is now up to date.${END}'
+if [ -z "$dryrun" ];then
+	foldIt echo -e '${INFO}The environment is now up to date.${END}'
+fi
