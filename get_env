@@ -682,7 +682,7 @@ foldIt echo "Using version: $version "
 dbg "Checking for internet connection . . ."
 inetCon=$(host "$get_envGitServer")
 inetErr=$?
-dbg "Checked internet connection by 'host google.com' answer:${inetCon}"
+dbg "Checked internet connection by 'host $get_envGitServer' answer:${inetCon}"
 if [ "$inetErr" != "0" ];then
 	errorExit "No internet connection or none functional dns. Exiting"
 fi
