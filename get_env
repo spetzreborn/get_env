@@ -35,7 +35,7 @@ myName=$(basename $0)
 # The absolute script name, on server, and default name.
 myAbsoluteName=get_env
 
-# Configurationfile
+# Configuration file
 confFile=~/${myName}.conf
 
 # Colors
@@ -407,7 +407,7 @@ localWorkDir=$localWorkDir
 #reportUrl=""
 
 
-# Files to be copied to various dirs. Work like:
+# Files to be copied to various directories. Work like:
 # [directory where file lives in repo] [directory where file should go] [files]
 files2copy[0]='HOME $HOME .testrc'
 
@@ -437,12 +437,14 @@ writeConfFile() {
 	dbg "${FUNCNAME}() was called, arg: $*"
 	# First time run - print GNU information
 	gnuLicens
+	local fileToWrite="$1"
 	bar
-	foldIt echo -n "Saving default configuration in $confFile"
-	if echo "$confFileContent" > $confFile;then
+	foldIt echo -n "Saving default configuration in $fileToWrite"
+	if echo "$confFileContent" > $fileToWrite;then
 		ok
+		dbg "Wrote config to $fileToWrite"
 	else
-		failed "Could not write $confFile"
+		failed "Could not write $fileToWrite"
 	fi
 }
 
@@ -626,23 +628,28 @@ if [ -f "$confFile" ];then
 	$confFile);then 
 		dbg "$confFile is not sanitized: $badContent"
 		errorExit "$confFile contains bad things: $badContent"
+	else
+		dbg "$confFile is sanitized, no bad content"
 	fi
 # Matches variables in default confFile and confFile. Only counts VARIABLE_NAME=variable. Variables must be set
-	if [ "$(egrep -c '^[^#]' $confFile)" -eq "$confFileVariables" ]; then
-		dbg "confFile ($confFile) ok, using it."
+	numberOfVariablesInConfFile=$(egrep -c -v\
+	-e "^#" \
+	-e "^$" \
+	-e "^files2copy[[][0-9]+[]]='?\"?[A-Za-z0-9/_~. $]+'?\"?" \
+	$confFile)
+	numberOfVariablesInConfFile=$(($numberOfVariablesInConfFile +1)) # This is because there is an occurrence of 'files2copy' in template.
+	if [ "$numberOfVariablesInConfFile" -eq "$confFileVariables" ]; then
+		dbg "confFile contains correct number of variables."
 	else
-# Pre source confFile, to be able to use settings from the old confFile.
-		. $confFile
-# Regenerate confFile, using sourced values.
-		genConfFile
-		dbg "Pre sourced confFile: $confFile"
-		dbg "$confFile has not the same numer of values as built in, overwriting using the values from pre sourced confFile."
-# Create confFile
-		writeConffile "Found no confFile, created $confFile. Edit this before running $myName again."
+		dbg "Wrong number of variable in $confFile, $numberOfVariablesInConfFile vs $confFileVariables"
+		dbg "Create new conffile"
+# Create new confFile
+		writeConfFile ${confFile}.new
+		errorExit "Created ${confFile}.new, before running $myName again, edit and move this file to $confFile"
 	fi
 else
 	dbg "\$confFile ($confFile) does not exist, creating."
-	writeConfFile
+	writeConfFile $confFile
 	errorExit "Created $confFile, before running $myName again, edit $confFile"
 fi
 
@@ -691,9 +698,9 @@ for array in "${files2copy[@]}";do
 done
 
 # Specific host configuration
-hostConf="${localWorkDir}/${repository}/${repository}-${version}/${HOSTNAME}/conf"
+hostConf="${localWorkDir}/${repository}/${repository}-${version}/${HOSTNAME}/${HOSTNAME}"
 if [ -f "${hostConf}" ];then
-	dbg "Found hostspecific conf"
+	dbg "Found host specific configuration"
 	if badContent=$(egrep -v \
 	-e "^#" \
 	-e "^files2copy[[][0-9]+[]]='?\"?[A-Za-z0-9/_~. $]+'?\"?" \
@@ -701,8 +708,8 @@ if [ -f "${hostConf}" ];then
 		dbg "$hostConf is not sanitized: $badContent"
 		errorExit "$hostConf contains bad things: $badContent"
 	fi
-	# Source hostspecific conf and run copyFiles()
-	. "${localWorkDir}/${repository}/${repository}-${version}/${HOSTNAME}/conf"
+	# Source host specific conf and run copyFiles()
+	. "${hostConf}"
 	for array in "${files2copy[@]}";do
 		copyFiles $array
 	done
