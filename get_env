@@ -760,10 +760,12 @@ if [ -z "$newFiles" ] && [ -z "$updatedFiles" ] && [ -z "$dryrun" ];then
 	foldIt echo "No new or changed files."
 fi
 
-if [ -z "$dryruNewFiles" ] && [ -z "$dryrunUpdatedFiles" ];then
-	foldIt echo "No files should been updated."
-else
-	foldIt echo "These files should have been changed: $dryruNewFiles $dryrunUpdatedFiles"
+if [ -n "$dryrun" ];then
+	if [ -z "$dryruNewFiles" ] && [ -z "$dryrunUpdatedFiles" ];then
+		foldIt echo "No files should been updated."
+	else
+		foldIt echo "These files should have been changed: $dryruNewFiles $dryrunUpdatedFiles"
+	fi
 fi
 
 # Report to webbserver my status
