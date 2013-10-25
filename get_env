@@ -91,6 +91,7 @@ gnuLicens() {
 
 
 EOF
+	dbg "${FUNCNAME}() leaving function"
 }
 
 # Function for word wrapping
@@ -207,6 +208,7 @@ ${awn}"'
 	else
 		dbg "\$reportUrl is not set, don't  reporting"
 	fi
+	dbg "${FUNCNAME}() leaving function"
 }
 
 # Function for exit due to fatal program error
@@ -218,6 +220,7 @@ errorExit() {
 	report "error=$1"
 	cleanup
 	exit 1
+	dbg "${FUNCNAME}() leaving function"
 }
 
 # Help menu when invoked with -h
@@ -302,7 +305,7 @@ downloadAndUnzip() {
 			failed "Failed to rsync"
 		fi
 	fi
-
+	dbg "${FUNCNAME}() leaving function"
 }
 
 # Files that shall be copied
@@ -377,6 +380,7 @@ copyFiles() {
 			fi
 		fi
 	done
+	dbg "${FUNCNAME}() leaving function"
 }
 
 # Number of variables that is supposed to be in confFile, is used to check if new confFile will be written
@@ -424,6 +428,7 @@ dirsToCreate="$HOME/sshfs"
 "
 
 	confFileVariables=$(echo "$confFileContent" | egrep -c '^[^#]')
+	dbg "${FUNCNAME}() leaving function"
 }
 
 # Change the values in $confFile
@@ -431,6 +436,7 @@ dirsToCreate="$HOME/sshfs"
 changeConfFile() {
 	dbg "${FUNCNAME}() was called, arg: $*"
 	sed -i "s/\($1 *= *\).*/\1$2/" $confFile
+	dbg "${FUNCNAME}() leaving function"
 }
 
 
@@ -447,6 +453,7 @@ writeConfFile() {
 	else
 		failed "Could not write $fileToWrite"
 	fi
+	dbg "${FUNCNAME}() leaving function"
 }
 
 # TODO: make createDir able to silently create directories when asked. (arguments)
@@ -466,6 +473,7 @@ createDir() {
 			fi
 		fi
 	done
+	dbg "${FUNCNAME}() leaving function"
 }
 
 # Echo variables to debug
@@ -500,7 +508,7 @@ showVariables() {
 # Need absolute name in from file, so it truly can make variable name.
 # This diff dose not care about comments.
 get_envDiffAndRestart() {
-	dbg "${FUNCNAME}() was called."
+	dbg "${FUNCNAME}() was called, arg: $*"
 	get_envDownloaded="${localWorkDir}/${get_envRepository}/${get_envRepository}-${get_envVersion}/${myAbsoluteName}"
 	if ! diff -q -I '^# .*'  ~/$myName ${get_envDownloaded} >/dev/null 2>&1; then
 		foldIt echo -e '${INFO}Found newer	 $myName ${END}'
@@ -534,6 +542,7 @@ get_envDiffAndRestart() {
 	else
 		foldIt echo "Already running latest $myName"
 	fi
+	dbg "${FUNCNAME}() leaving function"
 }
 
 cleanup() {
@@ -546,6 +555,7 @@ cleanup() {
 		rm $failedFile 
 		dbg "Removed $failedFile"
 	fi
+	dbg "${FUNCNAME}() leaving function"
 }
 
 ### End of functions
