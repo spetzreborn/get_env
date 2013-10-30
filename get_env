@@ -16,6 +16,8 @@
 # along with this program.  If not, see {http://www.gnu.org/licenses/}.
 #
 
+echo fobar
+
 # This functions starts the script so all functions don't need to be sourced before exiting.
 depends() {
 	for app in $@;do
