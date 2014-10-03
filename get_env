@@ -162,6 +162,10 @@ dbg() {
 # Takes arguments in:  var0=value0 var1=value1
 report() {
 	dbg "${FUNCNAME}() was called, arg: $*"
+	if [ -n $offline ];then
+		dbg "\$offline is set, dont report"
+		return 0
+	fi
 	if [ -n "$reportURL" ];then
 		dbg "\$reportUrl is set, try to reporting"
 		i=0
@@ -227,6 +231,7 @@ cat <<EOF
 	options:
 	-d   Debug - shows whats happening and saves debugLog in the form
 		 /tmp/${myName}.debugLog.2013-10-21T10:42:37.XXXXXXXXX
+	-f   Offline - dont require internetconnection. Just refresh from localrepo.
 	-h   This helptext
 	-l   If debug is used, use this file as debugLog.
 	-n   Dryrun - dont replace files, just show witch will be replaced.
@@ -500,6 +505,7 @@ showVariables() {
 	dbg "\$noGet_envUpdate: $noGet_envUpdate"
 	dbg "\$quietMode: $quietMode"
 	dbg "\$dryrun:$dryrun"
+	dbg "\$offline:$offline"
 }
 
 # Test if there was a change in get_env - and is needed to be run again.
@@ -565,11 +571,14 @@ if [ "$TERM" = "screen" ];then
 	dbg "\$TERM was screen, setting it to xterm for running in this script"
 fi
 
-while getopts ":dhl:nqr:u" opt; do
+while getopts ":dfhl:nqr:u" opt; do
 	case $opt in
 		d)
 		debug="-d"
 		echo "Debug is set, saving debugLog to: $debugLog"
+		;;
+		f)
+		offline="true"
 		;;
 		h) 
 		helpMenu 
@@ -675,26 +684,37 @@ foldIt echo "Using $localWorkDir as repo."
 foldIt echo "Using version: $version "
 
 # Check for internet connection
-dbg "Checking for internet connection . . ."
-inetCon=$(host "$get_envGitServer")
-inetErr=$?
-dbg "Checked internet connection by 'host $get_envGitServer' answer:${inetCon}"
-if [ "$inetErr" != "0" ];then
-	errorExit "No internet connection or none functional dns. Exiting"
+if [ -n $offline ];then
+	dbg "\$offline is set, dont check inetconn"
+else
+	dbg "Checking for internet connection . . ."
+	inetCon=$(host "$get_envGitServer")
+	inetErr=$?
+	dbg "Checked internet connection by 'host $get_envGitServer' answer:${inetCon}"
+	if [ "$inetErr" != "0" ];then
+		offline="Dont try to report, no connection"
+		errorExit "No internet connection or none functional dns. Exiting"
+	fi
 fi
 
 # Create $localWorkDir directory
 createDir $localWorkDir
 
 # Download latest get_env and repository as zip from github
-bar
-downloadAndUnzip $get_envGitServer $get_envGitUser $get_envRepository $get_envVersion
+if [ -z $offline ];then
+	bar
+	downloadAndUnzip $get_envGitServer $get_envGitUser $get_envRepository $get_envVersion
+fi
 # Check if downloaded get_env is newer, then replace and restart
-bar
-get_envDiffAndRestart
+if [ -z $offline ];then
+	bar
+	get_envDiffAndRestart
+fi
 # Download repository with files
-bar
-downloadAndUnzip $gitServer $gitUser $repository $version
+if [ -z $offline ];then
+	bar
+	downloadAndUnzip $gitServer $gitUser $repository $version
+fi
 
 # Creates directories from confFile
 createDir $dirsToCreate
