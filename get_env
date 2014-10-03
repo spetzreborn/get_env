@@ -137,10 +137,7 @@ failed() {
 	if [ -z "$quietMode" ] || [ -n "$debug" ];then
 		$tprint; echo -e "${warning}[FAILED]${end}"
 	fi
-	echo -e "${warning}$@${end}"
-	cat $failedFile
-	dbg "$*" "FAILED FILE:" $(cat $failedFile)
-	exit 1 
+	errorExit "$@"
 	}
 	
 # Non Critical failed.
@@ -592,12 +589,10 @@ while getopts ":dhl:nqr:u" opt; do
 		noGet_envUpdate="-u"
 		;;
 		\?) 
-		echo "Invalid option: -$OPTARG" >&2
-		exit 1
+		errorExit "Invalid option: -$OPTARG"
 		;;
 		:)	
-		echo "Option -$OPTARG requires an argument." >&2
-		exit 1
+		errorExit "Option -$OPTARG requires an argument."
 		;;
 	esac
 done
