@@ -223,13 +223,14 @@ errorExit() {
 # Help menu when invoked with -h
 helpMenu() {
 cat <<EOF
-"Useage: ./$0 arguments"
+"Useage: $0 arguments"
 	options:
-	-d   Debug - shows whats happening and saves debugLog in the form /tmp/${myName}.debugLog.2013-10-21T10:42:37.XXXXXXXXX
+	-d   Debug - shows whats happening and saves debugLog in the form
+		 /tmp/${myName}.debugLog.2013-10-21T10:42:37.XXXXXXXXX
 	-h   This helptext
 	-l   If debug is used, use this file as debugLog.
 	-n   Dryrun - dont replace files, just show witch will be replaced.
-	-q   Quietmode - no output exept errors
+	-q   Quietmode - no output exept errors, good for running from cron.
 	-r   Directory to create and download repo to, default same name as my filename (${myName})
 	-u   Do not update ${myName} even if newer is found
 
