@@ -57,7 +57,6 @@ tprint="$tput hpa $position"
 info=$yellow
 warning=$red
 
-failedFile=$(mktemp /tmp/${myName}.XXXXXX)
 downloadDir=$(mktemp -d /tmp/${myName}.XXXXXX)
 debug=""
 noGet_envUpdate=""
@@ -553,12 +552,6 @@ cleanup() {
 # Remove downloaded files and temporary directories
 	dbg "${FUNCNAME}() was called, arg: $*"
 	rm -rf ${downloadDir}
-	dbg "cat $failedFile: " $(cat $failedFile)
-	
-	if [ -f "$failedFile" ];then
-		rm $failedFile 
-		dbg "Removed $failedFile"
-	fi
 	dbg "${FUNCNAME}() leaving function"
 }
 
