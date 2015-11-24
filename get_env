@@ -550,21 +550,9 @@ get_envDiffAndRestart() {
 
 cleanup() {
 # Remove downloaded files and temporary directories
-<<<<<<< HEAD
-	dbg "${FUNCNAME}() was called, arg: $*"
-	rm -rf ${downloadDir}
-	dbg "${FUNCNAME}() leaving function"
-=======
     dbg "${FUNCNAME}() was called, arg: $*"
     rm -rf ${downloadDir}
-    dbg "cat $failedFile: " $(cat $failedFile)
-    
-    if [ -f "$failedFile" ];then
-        rm $failedFile 
-        dbg "Removed $failedFile"
-    fi
     dbg "${FUNCNAME}() leaving function"
->>>>>>> master
 }
 
 ### End of functions
@@ -732,22 +720,6 @@ done
 # Specific host configuration
 hostConf="${localWorkDir}/${repository}/${repository}-${version}/${HOSTNAME}/${HOSTNAME}"
 if [ -f "${hostConf}" ];then
-<<<<<<< HEAD
-	dbg "Found host specific configuration"
-	if badContent=$(egrep -v \
-	-e "^#" \
-	-e "^files2copy[[][0-9]+[]]='?\"?[A-Za-z0-9/_~. $]+'?\"?" \
-	$hostConf);then 
-		dbg "$hostConf is not sanitized: $badContent"
-		errorExit "$hostConf contains bad things: $badContent"
-	fi
-	# Source host specific conf and run actions.
-	. "${hostConf}"
-	createDir $dirsToCreate
-	for array in "${files2copy[@]}";do
-		copyFiles $array
-	done
-=======
     dbg "Found host specific configuration"
     if badContent=$(egrep -v \
     -e "^#" \
@@ -756,12 +728,12 @@ if [ -f "${hostConf}" ];then
         dbg "$hostConf is not sanitized: $badContent"
         errorExit "$hostConf contains bad things: $badContent"
     fi
-    # Source host specific conf and run copyFiles()
+    # Source host specific conf and run actions.
     . "${hostConf}"
+    createDir $dirsToCreate
     for array in "${files2copy[@]}";do
         copyFiles $array
     done
->>>>>>> master
 fi
 
 # Send to debug which files where new or updated
