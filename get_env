@@ -253,7 +253,7 @@ downloadAndUnzip() {
     local inFile="https://${server}/${user}/${repository}/archive/${branch}.zip"
     local outDir="${downloadDir}/${repository}"
     local outFile="${repository}-${branch}.zip"
-    createDir ${downloadDir}/${repository}
+    createDir -q ${downloadDir}/${repository}
     foldIt echo -n "Downloading ${inFile}"
 
     # Download
