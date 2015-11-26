@@ -253,7 +253,7 @@ downloadAndUnzip() {
     local inFile="https://${server}/${user}/${repository}/archive/${branch}.zip"
     local outDir="${downloadDir}/${repository}"
     local outFile="${repository}-${branch}.zip"
-    createDir ${downloadDir}/${repository}
+    createDir -q ${downloadDir}/${repository}
     foldIt echo -n "Downloading ${inFile}"
 
     # Download
@@ -458,17 +458,24 @@ writeConfFile() {
     dbg "${FUNCNAME}() leaving function"
 }
 
-# TODO: make createDir able to silently create directories when asked. (arguments)
 # Creates a directory
 createDir() {
+    if [ "$1" == "-q" ];then
+        quiet="yes"
+        shift
+    fi
     dbg "${FUNCNAME}() was called, arg: $*"
     for dir in $*;do
         dbg "Test if $dir exists"
         if [ ! -d $dir ];then
-            foldIt echo -n "Creating directory $dir"
+            if [ -z "$quiet" ];then
+                foldIt echo -n "Creating directory $dir"
+            fi
             if mkdir -p $dir;then
                 dbg "Created $dir"
-                ok
+                if [ -z "$quiet" ];then
+                    ok
+                fi
                 createdDirs="${createdDirs}$dir "
             else
                 failed "Failed to create $dir"
