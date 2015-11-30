@@ -398,11 +398,12 @@ get_envRepository=${get_envRepository:-"get_env"}
 # Branch from witch get_env is downloaded from. master or trunk
 get_envVersion=${version:-"master"}
 
-# Where to download dotfiles from. (should be a github repository)
+# Where to download dotfiles from.
+gitHub="yes" # "yes" if on github, else leave empty.
 gitServer=${gitServer:-"github.com"}
 # github user
 gitUser=${gitUser:-"spetzreborn"}
-# github repository
+# git repository
 repository=${repository:-"dotfiles"}
 # Branch from witch get_env is downloaded from. master or trunk
 version=${version:-"master"}
