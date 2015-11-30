@@ -185,7 +185,7 @@ get_envVersion=$get_envVersion&
 gitServer=$gitServer&
 gitUser=$gitUser&
 repository=$repository&
-version=$version&
+branch=$branch&
 quietMode=$quietMode&
 dryrun=$dryrun&
 debug=$debug&
@@ -326,7 +326,7 @@ copyFiles() {
         # If the destfile exist ...
         if [ -f ${toDir}/${file} ]; then 
             # .. diff it with the source file
-            if ! diff -q  ${localWorkDir}/${repository}/${repository}-${version}/${fromDir}/${file} ${toDir}/${file} >/dev/null 2>&1; then
+            if ! diff -q  ${localWorkDir}/${repository}/${repository}-${branch}/${fromDir}/${file} ${toDir}/${file} >/dev/null 2>&1; then
                 if [ -z "$dryrun" ];then
                     # .. And if it is not the same, copy to backup file:
                     # TODO: gzip backup? Number of backups? Better structure?
@@ -354,7 +354,7 @@ copyFiles() {
                     dryRun
                     dryrunUpdatedFiles="${dryrunUpdatedFiles}${file} "
                 else
-                    if cp ${localWorkDir}/${repository}/${repository}-${version}/${fromDir}/${file} ${toDir}/${file}; then
+                    if cp ${localWorkDir}/${repository}/${repository}-${branch}/${fromDir}/${file} ${toDir}/${file}; then
                         ok
                         dbg "Updated file: ${toDir}/${file} copied ok"
                         updatedFiles="${updatedFiles}${file} "
@@ -372,7 +372,7 @@ copyFiles() {
                 dryRun
                 dryrunNewFiles="${dryrunNewFiles}${file} "
             else
-                if cp ${localWorkDir}/${repository}/${repository}-${version}/${fromDir}/${file} ${toDir}/${file} >/dev/null 2>&1; then
+                if cp ${localWorkDir}/${repository}/${repository}-${branch}/${fromDir}/${file} ${toDir}/${file} >/dev/null 2>&1; then
                     ok
                     dbg "New file: ${toDir}/${file} copied ok"
                     newFiles="${newFiles}${file} "
@@ -396,7 +396,7 @@ get_envGitUser=${get_envGitUser:-"spetzreborn"}
 # github repository
 get_envRepository=${get_envRepository:-"get_env"}
 # Branch from witch get_env is downloaded from. master or trunk
-get_envVersion=${version:-"master"}
+get_envVersion=${branch:-"master"}
 
 # Where to download dotfiles from.
 gitHub="yes" # "yes" if on github, else leave empty.
@@ -406,7 +406,7 @@ gitUser=${gitUser:-"spetzreborn"}
 # git repository
 repository=${repository:-"dotfiles"}
 # Branch from witch get_env is downloaded from. master or trunk
-version=${version:-"master"}
+branch=${branch:-"master"}
 
 # Path to local repository
 localWorkDir=$localWorkDir
@@ -505,7 +505,7 @@ showVariables() {
     dbg "\$gitServer: $gitServer"
     dbg "\$gitUser: $gitUser"
     dbg "\$repository: $repository"
-    dbg "\$version: $version"
+    dbg "\$branch: $branch"
     # Call dbg() for all values in array $files2copy
     i=0
     for array in "${files2copy[@]}";do
@@ -687,7 +687,7 @@ showVariables
 
 # Some verbose things
 foldIt echo "Using $localWorkDir as repo."
-foldIt echo "Using version: $version "
+foldIt echo "Using branch: $branch "
 
 # Check for internet connection
 if [ -n $offline ];then
@@ -719,7 +719,7 @@ fi
 # Download repository with files
 if [ -z $offline ];then
     bar
-    downloadAndUnzip $gitServer $gitUser $repository $version
+    downloadAndUnzip $gitServer $gitUser $repository $branch
 fi
 
 # Creates directories from confFile
@@ -731,7 +731,7 @@ for array in "${files2copy[@]}";do
 done
 
 # Specific host configuration
-hostConf="${localWorkDir}/${repository}/${repository}-${version}/${HOSTNAME}/${HOSTNAME}"
+hostConf="${localWorkDir}/${repository}/${repository}-${branch}/${HOSTNAME}/${HOSTNAME}"
 if [ -f "${hostConf}" ];then
     dbg "Found host specific configuration"
     if badContent=$(egrep -v \
