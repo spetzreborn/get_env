@@ -459,12 +459,17 @@ writeConfFile() {
 }
 
 # Creates a directory
+# TODO make createDir() compatible with dryrun option
 createDir() {
+    dbg "${FUNCNAME}() was called, arg: $*"
     if [ "$1" == "-q" ];then
+        dbg "Set quiet for createDir()"
         quiet="yes"
         shift
+    else
+        quiet=""
     fi
-    dbg "${FUNCNAME}() was called, arg: $*"
+
     for dir in $*;do
         dbg "Test if $dir exists"
         if [ ! -d $dir ];then
