@@ -1,5 +1,5 @@
 #!/bin/bash
-# get_env - a program for downloading and managing of distributed dotfiles.
+# get_env - a program for downloading and managing of distributed dotfiles and user environment.
 # Copyright (C) 2013 Björn Bohman
 
 # This program is free software: you can redistribute it and/or modify
@@ -459,12 +459,17 @@ writeConfFile() {
 }
 
 # Creates a directory
+# TODO make createDir() compatible with dryrun option
 createDir() {
+    dbg "${FUNCNAME}() was called, arg: $*"
     if [ "$1" == "-q" ];then
+        dbg "Set quiet for createDir()"
         quiet="yes"
         shift
+    else
+        quiet=""
     fi
-    dbg "${FUNCNAME}() was called, arg: $*"
+
     for dir in $*;do
         dbg "Test if $dir exists"
         if [ ! -d $dir ];then
@@ -524,7 +529,7 @@ get_envDiffAndRestart() {
         foldIt echo -e '${INFO}Found newer     $myName ${END}'
         if [ -n "$noGet_envUpdate" ] || [ -n "$dryrun" ]; then
             dbg "$noGet_envUpdate $dryrun is set, dont replace or run newer" 
-            foldIt echo "Do not runner newer ${myName}, $noGet_envUpdate $dryrun is invoked."
+            foldIt echo "Do not run newer ${myName}, $noGet_envUpdate $dryrun is invoked."
         else
             foldIt echo -en "Replacing       $(echo ~)/${myName}"
             if cp ${get_envDownloaded} ~/${myName}; then
@@ -754,7 +759,7 @@ for file in $newFiles $updatedFiles; do
 # There was a change in .bashrc and need to source.
             echo ""
             foldIt echo -e '${INFO}Noticed change in $(echo ~)/.bashrc${END}'
-            echo ""
+            foldIT echo ""
             foldIt echo -e '${INFO}You need to source .bashrc to get the new functions in this shell${END}'
             foldIt echo "eg:  . ~/.bashrc"
             bar
