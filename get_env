@@ -309,6 +309,12 @@ downloadAndUnzip() {
     dbg "${FUNCNAME}() leaving function"
 }
 
+# Function to download zip from github.
+# Arg: server user repository branch filePath
+gitCloneAndPull() {
+    errorexit "Function not done yet."
+}
+
 # Files that shall be copied
 # Arg: dir_in_repo dir_to_be_moved_to _files_
 copyFiles() {
@@ -718,7 +724,12 @@ fi
 # Download repository with files
 if [ -z $offline ];then
     bar
-    downloadAndUnzip $gitServer $gitUser $repository $branch
+    if [ -n $github ];then
+        downloadAndUnzip $gitServer $gitUser $repository $branch
+    else
+        gitCloneAndPull $gitServer $gitUser $repository $branch
+    fi
+
 fi
 
 # Creates directories from confFile
