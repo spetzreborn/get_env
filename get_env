@@ -309,10 +309,23 @@ downloadAndUnzip() {
     dbg "${FUNCNAME}() leaving function"
 }
 
-# Function to download zip from github.
+# Function to clone and pull repository from gitserver.
 # Arg: server user repository branch filePath
 gitCloneAndPull() {
-    errorexit "Function not done yet."
+    dbg "${FUNCNAME}() was called, arg: $*"
+    depends git
+    local server=$1
+    local user=$2
+    local repository=$3
+    local branch=$4
+    errorExit "Function not done yet."
+
+# Check if target directory is correct git repository, then pull.
+
+# If git repository, but wrong repository, errorExit
+
+# If not git repository, and empty clone remote repository
+
 }
 
 # Files that shall be copied
