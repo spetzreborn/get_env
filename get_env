@@ -67,7 +67,7 @@ ddate=$(date +'%Y-%m-%dT%H:%M:%S')
 ###  Functions
 
 # Function to print GNU disclaimer
-gnuLicens() {
+gnuLicense() {
     dbg "${FUNCNAME}() was called, arg: $*"
     cat <<EOF
 
@@ -157,7 +157,7 @@ dbg() {
     fi
     }
 
-# Reports to webbserver
+# Reports to webserver
 # Takes arguments in:  var0=value0 var1=value1
 report() {
     dbg "${FUNCNAME}() was called, arg: $*"
@@ -464,7 +464,7 @@ changeConfFile() {
 writeConfFile() {
     dbg "${FUNCNAME}() was called, arg: $*"
     # First time run - print GNU information
-    gnuLicens
+    gnuLicense
     local fileToWrite="$1"
     bar
     foldIt echo -n "Saving default configuration in $fileToWrite"
