@@ -157,7 +157,7 @@ dbg() {
     fi
     }
 
-# Reports to webserver
+# Reports to web server
 # Takes arguments in:  var0=value0 var1=value1
 report() {
     dbg "${FUNCNAME}() was called, arg: $*"
@@ -198,10 +198,10 @@ updatedFiles=$updatedFiles
 createdDirs=$createdDirs&
 ${awn}"'
 
-        foldIt echo -n "Reporting to webbserver"
+        foldIt echo -n "Reporting to web server"
         if eval $doReport; then
             ok
-            dbg "Reported to webbserver"
+            dbg "Reported to web server"
         else
             ncfailed
         fi
@@ -834,7 +834,7 @@ if [ -n "$dryrun" ];then
     fi
 fi
 
-# Report to webbserver my status
+# Report to web server my status
 report
 
 # Cleanup
