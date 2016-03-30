@@ -322,9 +322,11 @@ gitCloneAndPull() {
 
 # Check if target directory is correct git repository, then pull.
 
+# $localWorkDir/git may be a good root.
+
 # If git repository, but wrong repository, errorExit
 
-# If not git repository, and empty clone remote repository
+# If not git repository, empty or does not exists: clone remote repository
 
 }
 
