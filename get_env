@@ -152,8 +152,8 @@ ncfailed() {
 # Debug function
 dbg() {
     if [ -n "$debug" ];then
-        logger -t $0 DEBUG:: -s " $*"
-        echo "$(date) $0 DEBUG:: $*" >>$debugLog
+        logger -t $0 DEBUG:: " $*"
+        echo "$(date) $0 DEBUG:: $*" | tee -a $debugLog
     fi
     }
 
