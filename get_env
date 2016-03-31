@@ -318,15 +318,29 @@ gitCloneAndPull() {
     local user=$2
     local repository=$3
     local branch=$4
+    local repoPath=$5
+    local sshPort=22
+    local gitRemoteRepo="ssh://${user}@${server}:${sshPort}/${repoPath}/${repository}.git/"
+
+    local outDir="${downloadDir}/${repository}"
+    createDir -q ${localWorkDir}/git
     errorExit "Function not done yet."
 
-# Check if target directory is correct git repository, then pull.
-
-# $localWorkDir/git may be a good root.
-
+# Check if target directory exists.
+    if [ -d ${localWorkDir}/git/${repository}.git ]; then
+# Check if target is git repo
 # If git repository, but wrong repository, errorExit
-
+        
+    else
+        foldIt echo -n "Git clone ${repository} to ${localWorkDir}/git/${repository}"
+        if git clone -q $gitRemoteRepo ${localWorkDir}/git/${repository};then
+            ok
+            dbg "Clone ${repository} to ${localWorkDir}/git/${repository}"
+        else
+            failed "Failed to clone ${repository} to ${localWorkDir}/git/${repository}"
+        fi
 # If not git repository, empty or does not exists: clone remote repository
+    fi
 
 # Checkout correct branch?
 
