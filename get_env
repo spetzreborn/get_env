@@ -328,6 +328,11 @@ gitCloneAndPull() {
 
 # If not git repository, empty or does not exists: clone remote repository
 
+# Checkout correct branch?
+
+# Rsync and exclude .git ?
+
+
 }
 
 # Files that shall be copied
