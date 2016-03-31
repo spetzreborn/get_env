@@ -755,6 +755,8 @@ fi
 # Creates directories from confFile
 createDir $dirsToCreate
 
+# TODO Move configuration to repo? E.g ${localWorkDir}/${repository}/${repository}-${branch}/ALL_HOSTS
+
 # Call copyFiles() for all values in array $files2copy
 for array in "${files2copy[@]}";do
     copyFiles $array
