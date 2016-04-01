@@ -236,7 +236,7 @@ cat <<EOF
     -f   Offline - dont require internetconnection. Just refresh from localrepo.
     -h   This helptext
     -l   If debug is used, use this file as debugLog.
-    -n   Dryrun - dont replace files, just show witch will be replaced.
+    -n   Dryrun - dont replace files, just show which files would be replaced.
     -q   Quietmode - no output exept errors, good for running from cron.
     -r   Directory to create and download repo to, default same name as my filename (${myName})
     -u   Do not update ${myName} even if newer is found
