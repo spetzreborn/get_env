@@ -351,7 +351,13 @@ gitCloneAndPull() {
     # Save current branch
     local startBranch=$(git branch | grep '\*' | awk '{print $2}')
     # Checkout correct branch
-    git checkout ${branch} -q
+    foldIt echo -n "Checkout branch ${branch}"
+    if git checkout ${branch} -q;then
+        ok
+        dbg "Checked out branch ${branch}"
+    else
+        failed "Could not checkout branch ${branch}"
+    fi
 
 # TODO: Generic rsync-function. Both gitCloneAndPull() and downloadAndUnzip() uses same code.
     foldIt echo -n "Moving files to $localWorkDir"
