@@ -39,7 +39,7 @@ myAbsoluteName=get_env
 confFile=~/${myName}.conf
 
 # The directory program was started in
-myStartDirectory=$(pwdpwd)
+myStartDirectory=$(pwd)
 
 # Colors
 red='\033[0;31m'
@@ -327,13 +327,13 @@ gitCloneAndPull() {
     local gitRemoteRepo="ssh://${user}@${server}:${sshPort}/${repoPath}/${repository}.git/"
 
     createDir -q ${localWorkDir}/git
-    errorExit "Function not done yet."
 
 # Check if target directory exists.
     if [ -d ${localWorkDir}/git/${repository} ]; then
 # TODO: Fix for existing dir
 # Check if target is git repo
 # If git repository, but wrong repository, errorExit
+    errorExit "Function not done yet."
 
     else
         # Local repository does not exists, trying to clone 
