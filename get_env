@@ -378,8 +378,15 @@ gitCloneAndPull() {
         fi
     fi
 
-    # Restore staring branch and bash CWD
-    git checkout ${startBranch} -q
+    # Restore staring branch
+    foldIt echo -n "Restoring original branch ${startBranch}"
+    if git checkout ${startBranch} -q;then
+        ok
+        dbg "Checked out branch ${startBranch}"
+    else
+        failed "Could not checkout branch ${startBranch}"
+    fi
+
     cd $myStartDirectory
 
     dbg "${FUNCNAME}() leaving function"
