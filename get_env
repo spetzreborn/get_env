@@ -38,6 +38,9 @@ myAbsoluteName=get_env
 # Configuration file
 confFile=~/${myName}.conf
 
+# The directory program was started in
+myStartDirectory=$(pwdpwd)
+
 # Colors
 red='\033[0;31m'
 boldRed='\033[1;31m'
@@ -322,16 +325,17 @@ gitCloneAndPull() {
     local sshPort=22
     local gitRemoteRepo="ssh://${user}@${server}:${sshPort}/${repoPath}/${repository}.git/"
 
-    local outDir="${downloadDir}/${repository}"
     createDir -q ${localWorkDir}/git
     errorExit "Function not done yet."
 
 # Check if target directory exists.
-    if [ -d ${localWorkDir}/git/${repository}.git ]; then
+    if [ -d ${localWorkDir}/git/${repository} ]; then
+# TODO: Fix for existing dir
 # Check if target is git repo
 # If git repository, but wrong repository, errorExit
-        
+
     else
+        # Local repository does not exists, trying to clone 
         foldIt echo -n "Git clone ${repository} to ${localWorkDir}/git/${repository}"
         if git clone -q $gitRemoteRepo ${localWorkDir}/git/${repository};then
             ok
@@ -339,14 +343,39 @@ gitCloneAndPull() {
         else
             failed "Failed to clone ${repository} to ${localWorkDir}/git/${repository}"
         fi
-# If not git repository, empty or does not exists: clone remote repository
     fi
 
-# Checkout correct branch?
+    cd ${localWorkDir}/git/${repository}
 
-# Rsync and exclude .git ?
+    # Save current branch
+    local startBranch=$(git branch | grep '\*' | awk '{print $2}')
+    # Checkout correct branch
+    git checkout ${branch} -q
 
+# TODO: Generic rsync-function. Both gitCloneAndPull() and downloadAndUnzip() uses same code.
+    foldIt echo -n "Moving files to $localWorkDir"
+    # rsync to $localWorkDir
+    if [ -z "$debug" ];then
+        if  rsync -aq --delete --exclude='.git' ${localWorkDir}/git/${repository} ${localWorkDir}/${repository}/; then
+            ok
+            dbg "rsync to $localWorkDir"
+        else
+            failed "Failed to rsync"
+        fi
+    else
+        if  rsync -a --delete --exclude='.git'  ${localWorkDir}/git/${repository} ${localWorkDir}/${repository}/; then
+            ok
+            dbg "rsync to $localWorkDir"
+        else
+            failed "Failed to rsync"
+        fi
+    fi
 
+    # Restore staring branch and bash CWD
+    git checkout ${startBranch} -q
+    cd $myStartDirectory
+
+    dbg "${FUNCNAME}() leaving function"
 }
 
 # Files that shall be copied
