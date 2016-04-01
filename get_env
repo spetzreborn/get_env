@@ -292,6 +292,7 @@ downloadAndUnzip() {
             failed "Failed to unzip"
         fi
     fi
+# TODO: Generic rsync-function. Both gitCloneAndPull() and downloadAndUnzip() uses same code.
     foldIt echo -n "Moving files to $localWorkDir"
     # rsync to $localWorkDir
     if [ -z "$debug" ];then
@@ -467,7 +468,6 @@ get_envRepository=${get_envRepository:-"get_env"}
 get_envBranch=${get_envBranch:-"master"}
 
 # Where to download dotfiles from.
-gitHub="yes" # "yes" if on github, else leave empty.
 gitServer=${gitServer:-"github.com"}
 # github user
 gitUser=${gitUser:-"spetzreborn"}
@@ -785,9 +785,10 @@ if [ -z $offline ];then
     get_envDiffAndRestart
 fi
 # Download repository with files
+# TODO: Be able to use both github and gitrepository?. Then download both.
 if [ -z $offline ];then
     bar
-    if [ -n $github ];then
+    if [ "$gitServer" = "github.com" ];then
         downloadAndUnzip $gitServer $gitUser $repository $branch
     else
         gitCloneAndPull $gitServer $gitUser $repository $branch
