@@ -314,17 +314,23 @@ downloadAndUnzip() {
 }
 
 # Function to clone and pull repository from gitserver.
-# Arg: server user repository branch filePath
+# Arg: server user repository branch [ssh port (optional)]
 gitCloneAndPull() {
     dbg "${FUNCNAME}() was called, arg: $*"
     depends git
     local server=$1
     local user=$2
-    local repository=$3
+    local pathToRepository=$(echo $3 | egrep -o '^.+/')
+    #TODO: Make better regex. Now repository is only allowed to be named alphanumeric characters, '_' and '.'
+    local repository=$(echo $3 | egrep -o '[[:alnum:]_\.]+$')
     local branch=$4
-    local repoPath=$5
-    local sshPort=22
-    local gitRemoteRepo="ssh://${user}@${server}:${sshPort}/${repoPath}/${repository}.git/"
+    local sshPort=${5:-"22"}
+    local gitRemoteRepo="ssh://${user}@${server}:${sshPort}/${pathToRepository}${repository}"
+
+    # Git may clone both with and without trailing '.git'. Local repository will not have .git, therefor removing it from variable
+    if echo $repository | grep -q '\.git$';then
+        repository=$(echo $repository | sed 's/\.git$//')
+    fi
 
     createDir -q ${localWorkDir}/git
 
@@ -337,8 +343,10 @@ gitCloneAndPull() {
 
     else
         # Local repository does not exists, trying to clone 
-        foldIt echo -n "Git clone ${repository} to ${localWorkDir}/git/${repository}"
-        if git clone -q $gitRemoteRepo ${localWorkDir}/git/${repository};then
+        cd ${localWorkDir}/git/
+        dbg "URL to use for git clone:  $gitRemoteRepo"
+        foldIt echo -n "Git clone ${repository} to ${localWorkDir}/git/ "
+        if git clone -q $gitRemoteRepo;then
             ok
             dbg "Clone ${repository} to ${localWorkDir}/git/${repository}"
         else
@@ -349,7 +357,7 @@ gitCloneAndPull() {
     cd ${localWorkDir}/git/${repository}
 
     # Save current branch
-    local startBranch=$(git branch | grep '\*' | awk '{print $2}')
+    local startBranch=$(git branch --no-color | grep '\*' | awk '{print $2}')
     # Checkout correct branch
     foldIt echo -n "Checkout branch ${branch}"
     if git checkout ${branch} -q;then
@@ -365,14 +373,14 @@ gitCloneAndPull() {
     if [ -z "$debug" ];then
         if  rsync -aq --delete --exclude='.git' ${localWorkDir}/git/${repository} ${localWorkDir}/${repository}/; then
             ok
-            dbg "rsync to $localWorkDir"
+            dbg "rsync from ${localWorkDir}/git/${repository} to ${localWorkDir}/${repository}/"
         else
             failed "Failed to rsync"
         fi
     else
-        if  rsync -a --delete --exclude='.git'  ${localWorkDir}/git/${repository} ${localWorkDir}/${repository}/; then
+        if  rsync -av --delete --exclude='.git'  ${localWorkDir}/git/${repository} ${localWorkDir}/${repository}/; then
             ok
-            dbg "rsync to $localWorkDir"
+            dbg "rsync from ${localWorkDir}/git/${repository} to ${localWorkDir}/${repository}/"
         else
             failed "Failed to rsync"
         fi
@@ -468,7 +476,7 @@ copyFiles() {
 }
 
 # Number of variables that is supposed to be in confFile, is used to check if new confFile will be written
-genConfFile() {
+generateConfFile() {
     dbg "${FUNCNAME}() was called, arg: $*"
     confFileContent="\
 # Where to download new get_env from (should be a github repository)
@@ -567,6 +575,8 @@ createDir() {
             else
                 failed "Failed to create $dir"
             fi
+        else
+            dbg "Dir $dir already exists"
         fi
     done
     dbg "${FUNCNAME}() leaving function"
@@ -716,8 +726,8 @@ if [ -z "$localWorkDir" ]; then
     dbg 'Setting defult $localWorkDir to absolut path: ' "$localWorkDir"
 fi
 
-# genConfFile() must be run before attempting to compare confFiles, but after $localWorkDir is set.
-genConfFile
+# generateConfFile() must be run before attempting to compare confFiles, but after $localWorkDir is set.
+generateConfFile
 # Checks if confFile exists and have read and write permissions.
 if [ -f "$confFile" ];then
     if [ ! -w "$confFile" ] || [ ! -r "$confFile" ];then
