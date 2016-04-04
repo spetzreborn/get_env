@@ -164,7 +164,7 @@ dbg() {
 # Takes arguments in:  var0=value0 var1=value1
 report() {
     dbg "${FUNCNAME}() was called, arg: $*"
-    if [ -n $offline ];then
+    if [ -n "$offline" ];then
         dbg "\$offline is set, dont report"
         return 0
     fi
@@ -335,7 +335,7 @@ gitCloneAndPull() {
     createDir -q ${localWorkDir}/git
 
 # Check if target directory exists.
-    if [ -d ${localWorkDir}/git/${repository} ]; then
+    if [ -d "${localWorkDir}/git/${repository}" ]; then
 # TODO: Fix for existing dir
 # Check if target is git repo
 # If git repository, but wrong repository, errorExit
@@ -414,7 +414,7 @@ copyFiles() {
     for file in $*
     do
         # If the destfile exist ...
-        if [ -f ${toDir}/${file} ]; then 
+        if [ -f "${toDir}/${file}" ]; then 
             # .. diff it with the source file
             if ! diff -q  ${localWorkDir}/${repository}/${repository}-${branch}/${fromDir}/${file} ${toDir}/${file} >/dev/null 2>&1; then
                 if [ -z "$dryrun" ];then
@@ -562,7 +562,7 @@ createDir() {
 
     for dir in $*;do
         dbg "Test if $dir exists"
-        if [ ! -d $dir ];then
+        if [ ! -d "$dir" ];then
             if [ -z "$quiet" ];then
                 foldIt echo -n "Creating directory $dir"
             fi
@@ -781,8 +781,8 @@ foldIt echo "Using $localWorkDir as repo."
 foldIt echo "Using branch: $branch "
 
 # Check for internet connection
-if [ -n $offline ];then
-    dbg "\$offline is set, dont check inetconn"
+if [ -n "$offline" ];then
+    dbg "\$offline is set \"$offline\", dont check inetconn"
 else
     dbg "Checking for internet connection . . ."
     inetCon=$(host "$get_envGitServer")
@@ -798,18 +798,18 @@ fi
 createDir $localWorkDir
 
 # Download latest get_env and repository as zip from github
-if [ -z $offline ];then
+if [ -z "$offline" ];then
     bar
     downloadAndUnzip $get_envGitServer $get_envGitUser $get_envRepository $get_envBranch
 fi
 # Check if downloaded get_env is newer, then replace and restart
-if [ -z $offline ];then
+if [ -z "$offline" ];then
     bar
     get_envDiffAndRestart
 fi
 # Download repository with files
 # TODO: Be able to use both github and gitrepository?. Then download both.
-if [ -z $offline ];then
+if [ -z "$offline" ];then
     bar
     if [ "$gitServer" = "github.com" ];then
         downloadAndUnzip $gitServer $gitUser $repository $branch
