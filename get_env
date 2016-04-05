@@ -141,7 +141,7 @@ failed() {
     fi
     errorExit "$@"
     }
-    
+
 # Non Critical failed.
 ncfailed() {
     if [ -z "$quietMode" ] || [ -n "$debug" ];then
@@ -151,7 +151,7 @@ ncfailed() {
         foldIt echo -e "INFO: $@"
     fi
     }
-    
+
 # Debug function
 dbg() {
     if [ -n "$debug" ];then
@@ -347,7 +347,7 @@ gitCloneAndPull() {
         if ! echo ${checkedOutrepository} | grep -q "${repository}"; then
             errorExit "Wrong repository: ${localWorkDir}/git/${repository}"
         fi
-        
+
         # Save current branch
         local startBranch=$(git branch --no-color | grep '\*' | awk '{print $2}')
         foldIt echo -n "Git pull ${repository} to ${localWorkDir}/git/ "
@@ -359,7 +359,7 @@ gitCloneAndPull() {
         fi
 
     else
-        # Local repository does not exists, trying to clone 
+        # Local repository does not exists, trying to clone
         cd ${localWorkDir}/git/
         dbg "URL to use for git clone:  $gitRemoteRepo"
         foldIt echo -n "Git clone ${repository} to ${localWorkDir}/git/ "
@@ -697,8 +697,8 @@ while getopts ":dfhl:nqr:u" opt; do
         f)
         offline="true"
         ;;
-        h) 
-        helpMenu 
+        h)
+        helpMenu
         ;;
         l)
         debugLog=$(readlink -f $OPTARG)
@@ -709,16 +709,16 @@ while getopts ":dfhl:nqr:u" opt; do
         q)
         quietMode="-q"
         ;;
-        r)    
+        r)
         localWorkDir=$(readlink -f $OPTARG)
         ;;
         u)
         noGet_envUpdate="-u"
         ;;
-        \?) 
+        \?)
         errorExit "Invalid option: -$OPTARG"
         ;;
-        :)    
+        :)
         errorExit "Option -$OPTARG requires an argument."
         ;;
     esac
