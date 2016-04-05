@@ -336,10 +336,27 @@ gitCloneAndPull() {
 
 # Check if target directory exists.
     if [ -d "${localWorkDir}/git/${repository}" ]; then
-# TODO: Fix for existing dir
-# Check if target is git repo
-# If git repository, but wrong repository, errorExit
-    errorExit "Function not done yet."
+        # Check if target is git repository.
+        if [ ! -d "${localWorkDir}/git/${repository}/.git" ]; then
+            errorExit "${localWorkDir}/git/${repository} is not an git repository."
+        fi
+
+        # Check that it is correct repository
+        cd ${localWorkDir}/git/${repository}
+        local checkedOutrepository=$( git remote -v | grep fetch | awk '{print $2}')
+        if ! echo ${checkedOutrepository} | grep -q "${repository}"; then
+            errorExit "Wrong repository: ${localWorkDir}/git/${repository}"
+        fi
+        
+        # Save current branch
+        local startBranch=$(git branch --no-color | grep '\*' | awk '{print $2}')
+        foldIt echo -n "Git pull ${repository} to ${localWorkDir}/git/ "
+        if git pull -q ;then
+            ok
+            dbg "Git pulled ${repository} to ${localWorkDir}/git/${repository}"
+        else
+            failed "Failed to git pull ${localWorkDir}/git/${repository}"
+        fi
 
     else
         # Local repository does not exists, trying to clone 
@@ -356,8 +373,11 @@ gitCloneAndPull() {
 
     cd ${localWorkDir}/git/${repository}
 
-    # Save current branch
-    local startBranch=$(git branch --no-color | grep '\*' | awk '{print $2}')
+    # Save current branch, if not set already
+    if [ -z "$startBranch" ]; then
+        local startBranch=$(git branch --no-color | grep '\*' | awk '{print $2}')
+    fi
+
     # Checkout correct branch
     foldIt echo -n "Checkout branch ${branch}"
     if git checkout ${branch} -q;then
