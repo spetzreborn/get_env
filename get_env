@@ -320,14 +320,12 @@ gitCloneAndPull() {
     depends git
     local server=$1
     local user=$2
-    local pathToRepository=$(echo $3 | egrep -o '^.+/')
-    #TODO: Make better regex. Now repository is only allowed to be named alphanumeric characters, '_' and '.'
     repository=$(echo $3 | egrep -o '[[:alnum:]_\.]+$')
     local branch=$4
     local sshPort=${5:-"22"}
-    local gitRemoteRepo="ssh://${user}@${server}:${sshPort}/${pathToRepository}${repository}"
+    local gitRemoteRepo="ssh://${user}@${server}:${sshPort}/${pathToRepository}/${repository}"
 
-    # Git may clone both with and without trailing '.git'. Local repository will not have .git, therefor removing it from variable
+    # Git may clone both with and without trailing '.git'. Local repository will not have .git, therefore removing it from variable
     if echo $repository | grep -q '\.git$';then
         repository=$(echo $repository | sed 's/\.git$//')
     fi
@@ -390,6 +388,7 @@ gitCloneAndPull() {
 # TODO: Generic rsync-function. Both gitCloneAndPull() and downloadAndUnzip() uses same code.
     foldIt echo -n "Moving files to $localWorkDir"
     # rsync to $localWorkDir
+    createDir "${localWorkDir}/${repository}/${repository}-${branch}"
     if [ -z "$debug" ];then
         if  rsync -aq --delete --exclude='.git' ${localWorkDir}/git/${repository}/ ${localWorkDir}/${repository}/${repository}-${branch}; then
             ok
@@ -508,14 +507,19 @@ get_envRepository=${get_envRepository:-"get_env"}
 # Branch from witch get_env is downloaded from. master or trunk
 get_envBranch=${get_envBranch:-"master"}
 
-# Where to download dotfiles from.
+# Where to download environment from.
 gitServer=${gitServer:-"github.com"}
-# github user
+# git user
 gitUser=${gitUser:-"spetzreborn"}
 # git repository
 repository=${repository:-"dotfiles"}
-# Branch from witch get_env is downloaded from. master or trunk
+# Branch from witch environment is downloaded from. master or trunk
 branch=${branch:-"master"}
+
+# If not using github as repository you may need to set these settings:
+# 'git clone ssh://${gitUser}@${gitServer}:${sshPort}/${pathToRepository}${repository}'
+sshPort=${sshPort:-"22"}
+pathToRepository=${pathToRepository:-""}
 
 # Path to local repository
 localWorkDir=$localWorkDir
@@ -753,7 +757,8 @@ if [ -f "$confFile" ];then
     if [ ! -w "$confFile" ] || [ ! -r "$confFile" ];then
         errorExit "No read or write permissions for $confFile"
     fi
-# Sanitize confFile so that only sane line exists. TODO: Only accepted  variables that we want?
+#TODO: Move sanitation to own function? Host specific uses same code
+# Sanitize confFile so that only sane line exists. TODO: Only accepted variables that we want?
     if badContent=$(egrep -v \
     -e "^([A-Za-z_]+=[A-Za-z0-9/_~. ]+)?$" \
     -e "^#" \
@@ -834,15 +839,39 @@ if [ -z "$offline" ];then
     if [ "$gitServer" = "github.com" ];then
         downloadAndUnzip $gitServer $gitUser $repository $branch
     else
-        gitCloneAndPull $gitServer $gitUser $repository $branch
+        gitCloneAndPull $gitServer $gitUser $repository $branch $sshPort
     fi
+# TODO: When offline, check out correct branch.
 
 fi
 
+# TODO: Make sanitation an function.
+# Configuration for all hosts.
+allHostConf="${localWorkDir}/${repository}/${repository}-${branch}/ALL_HOSTS"
+if [ -f "$allHostConf" ];then
+    foldIt echo "Found host specific configuration"
+    if badContent=$(egrep -v \
+    -e "^#" \
+    -e "dirsToCreate=" \
+    -e "^files2copy[[][0-9]+[]]='?\"?[A-Za-z0-9/_~. $]+'?\"?" \
+    $allHostConf);then 
+        dbg "$allHostConf is not sanitized: $badContent"
+        errorExit "$allHostConf contains bad things: $badContent"
+    fi
+    # Source host specific conf and run actions.
+    . "${allHostConf}"
+    createDir $dirsToCreate
+    for array in "${files2copy[@]}";do
+        copyFiles $array
+    done
+else
+    errorExit "Cant find 'ALL_HOSTS': $allHostConf"
+fi
+
+# TODO: empty $files2copy and $dirsToCreate before next source.
+
 # Creates directories from confFile
 createDir $dirsToCreate
-
-# TODO Move configuration to repo? E.g ${localWorkDir}/${repository}/${repository}-${branch}/ALL_HOSTS
 
 # Call copyFiles() for all values in array $files2copy
 for array in "${files2copy[@]}";do
@@ -852,9 +881,10 @@ done
 # Specific host configuration
 hostConf="${localWorkDir}/${repository}/${repository}-${branch}/${HOSTNAME}/${HOSTNAME}"
 if [ -f "${hostConf}" ];then
-    dbg "Found host specific configuration"
+    foldIt echo "Found host specific configuration"
     if badContent=$(egrep -v \
     -e "^#" \
+    -e "dirsToCreate=" \
     -e "^files2copy[[][0-9]+[]]='?\"?[A-Za-z0-9/_~. $]+'?\"?" \
     $hostConf);then 
         dbg "$hostConf is not sanitized: $badContent"
@@ -879,7 +909,7 @@ for file in $newFiles $updatedFiles; do
 # There was a change in .bashrc and need to source.
             echo ""
             foldIt echo -e '${INFO}Noticed change in $(echo ~)/.bashrc${END}'
-            foldIT echo ""
+            foldIt echo ""
             foldIt echo -e '${INFO}You need to source .bashrc to get the new functions in this shell${END}'
             foldIt echo "eg:  . ~/.bashrc"
             bar
