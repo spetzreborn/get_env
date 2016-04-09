@@ -531,21 +531,6 @@ localWorkDir=$localWorkDir
 
 # If set, report status to this address. (Uses report.php from github.com/spetzreborn/get_env)
 #reportUrl=""
-
-
-# Files to be copied to various directories. Work like:
-# [directory where file lives in repo] [directory where file should go] [files]
-files2copy[0]='HOME $HOME .testrc'
-
-# This is an more realistic example
-# Files to be copied from [HOME] to [$HOME]
-# files2copy[0]='HOME $HOME .bashrc .profile .vimrc .gitconfig'
-# Files to be copies from [HOME/vim] to [$HOME/.vim/plugin]
-# files2copy[1]='HOME/vim $HOME/.vim/plugin gnupg.vim'
-
-# Create directories
-# I like to have an empty directory named 'sshfs' in my homedir for mounting sshfs.
-dirsToCreate="$HOME/sshfs"
 "
 
     confFileVariables=$(echo "$confFileContent" | egrep -c '^[^#]')
