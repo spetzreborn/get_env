@@ -432,12 +432,12 @@ copyFiles() {
 
     for file in $*
     do
-        # Test if the sourcefile exists
+        # Test if the source file exists
         if [ ! -f ${localWorkDir}/${repository}/${repository}-${branch}/${fromDir}/${file} ]; then
             foldIt echo -n "Checking for file ${file}"
             failed "File does not exists: ${localWorkDir}/${repository}/${repository}-${branch}/${fromDir}/${file}"
         fi
-        # If the destfile exist ...
+        # If the destination file exist ...
         if [ -f "${toDir}/${file}" ]; then
             # .. diff it with the source file
             if ! diff -q  ${localWorkDir}/${repository}/${repository}-${branch}/${fromDir}/${file} ${toDir}/${file} >/dev/null 2>&1; then
@@ -728,7 +728,7 @@ fi
 dbg "I have started, read variables and functions and are on line:$LINENO"
 showVariables
 
-# Verify write permissions in homedirectory
+# Verify write permissions in home directory
 if [ ! -w ~ ];then
     errorExit "Have no write permissions in $(echo ~)"
 fi
@@ -737,7 +737,7 @@ fi
 # If argument -r was not given, set default $localWorkDir to absolute path
 if [ -z "$localWorkDir" ]; then
     localWorkDir="$(echo ~/.${myName})"
-    dbg 'Setting defult $localWorkDir to absolut path: ' "$localWorkDir"
+    dbg 'Setting defult $localWorkDir to absolute path: ' "$localWorkDir"
 fi
 
 # generateConfFile() must be run before attempting to compare confFiles, but after $localWorkDir is set.
