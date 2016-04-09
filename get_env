@@ -432,8 +432,12 @@ copyFiles() {
 
     for file in $*
     do
+        # Test if the sourcefile exists
+        if [ ! -f ${localWorkDir}/${repository}/${repository}-${branch}/${fromDir}/${file} ]; then
+            errorExit "File does not exists: ${localWorkDir}/${repository}/${repository}-${branch}/${fromDir}/${file}"
+        fi
         # If the destfile exist ...
-        if [ -f "${toDir}/${file}" ]; then 
+        if [ -f "${toDir}/${file}" ]; then
             # .. diff it with the source file
             if ! diff -q  ${localWorkDir}/${repository}/${repository}-${branch}/${fromDir}/${file} ${toDir}/${file} >/dev/null 2>&1; then
                 if [ -z "$dryrun" ];then
