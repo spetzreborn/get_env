@@ -858,15 +858,9 @@ else
     errorExit "Cant find 'ALL_HOSTS': $allHostConf"
 fi
 
-# TODO: empty $files2copy and $dirsToCreate before next source.
-
-# Creates directories from confFile
-createDir $dirsToCreate
-
-# Call copyFiles() for all values in array $files2copy
-for array in "${files2copy[@]}";do
-    copyFiles $array
-done
+# Empty $files2copy and $dirsToCreate before specific host configuration.
+files2copy=()
+dirsToCreate=""
 
 # Specific host configuration
 hostConf="${localWorkDir}/${repository}/${repository}-${branch}/${HOSTNAME}/${HOSTNAME}"
@@ -927,7 +921,7 @@ done
 #    ;;
 #    esac
 # done
-# 
+#
 # # Special things for updated files:
 # for file in $updatedFiles; do
 #    case $file in
