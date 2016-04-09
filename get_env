@@ -468,7 +468,7 @@ copyFiles() {
                         dbg "Updated file: ${toDir}/${file} copied ok"
                         updatedFiles="${updatedFiles}${file} "
                     else
-                        failed
+                        failed "Could not copy ${localWorkDir}/${repository}/${repository}-${branch}/${fromDir}/${file} to ${toDir}/${file}"
                     fi
                 fi
             else
@@ -486,7 +486,7 @@ copyFiles() {
                     dbg "New file: ${toDir}/${file} copied ok"
                     newFiles="${newFiles}${file} "
                 else
-                    failed
+                    failed "Could not copy ${localWorkDir}/${repository}/${repository}-${branch}/${fromDir}/${file} to ${toDir}/${file}"
                 fi
             fi
         fi
@@ -849,7 +849,7 @@ fi
 # Configuration for all hosts.
 allHostConf="${localWorkDir}/${repository}/${repository}-${branch}/ALL_HOSTS"
 if [ -f "$allHostConf" ];then
-    foldIt echo "Found host specific configuration"
+    foldIt echo "Found configuration for ${repository}"
     if badContent=$(egrep -v \
     -e "^#" \
     -e "dirsToCreate=" \
