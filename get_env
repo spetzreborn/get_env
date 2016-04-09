@@ -434,7 +434,8 @@ copyFiles() {
     do
         # Test if the sourcefile exists
         if [ ! -f ${localWorkDir}/${repository}/${repository}-${branch}/${fromDir}/${file} ]; then
-            errorExit "File does not exists: ${localWorkDir}/${repository}/${repository}-${branch}/${fromDir}/${file}"
+            foldIt echo -n "Checking for file ${file}"
+            failed "File does not exists: ${localWorkDir}/${repository}/${repository}-${branch}/${fromDir}/${file}"
         fi
         # If the destfile exist ...
         if [ -f "${toDir}/${file}" ]; then
