@@ -634,7 +634,7 @@ get_envDiffAndRestart() {
     if ! diff -q -I '^# .*'  ~/$myName ${get_envDownloaded} >/dev/null 2>&1; then
         foldIt echo -e '${INFO}Found newer     $myName ${END}'
         if [ -n "$noGet_envUpdate" ] || [ -n "$dryrun" ]; then
-            dbg "$noGet_envUpdate $dryrun is set, dont replace or run newer" 
+            dbg "$noGet_envUpdate $dryrun is set, dont replace or run newer"
             foldIt echo "Do not run newer ${myName}, $noGet_envUpdate $dryrun is invoked."
         else
             foldIt echo -en "Replacing       $(echo ~)/${myName}"
@@ -753,7 +753,7 @@ if [ -f "$confFile" ];then
     -e "^([A-Za-z_]+=[A-Za-z0-9/_~. ]+)?$" \
     -e "^#" \
     -e "^files2copy[[][0-9]+[]]='?\"?[A-Za-z0-9/_~. $]+'?\"?" \
-    $confFile);then 
+    $confFile);then
         dbg "$confFile is not sanitized: $badContent"
         errorExit "$confFile contains bad things: $badContent"
     else
@@ -844,7 +844,7 @@ if [ -f "$allHostConf" ];then
     -e "^#" \
     -e "dirsToCreate=" \
     -e "^files2copy[[][0-9]+[]]='?\"?[A-Za-z0-9/_~. $]+'?\"?" \
-    $allHostConf);then 
+    $allHostConf);then
         dbg "$allHostConf is not sanitized: $badContent"
         errorExit "$allHostConf contains bad things: $badContent"
     fi
@@ -870,7 +870,7 @@ if [ -f "${hostConf}" ];then
     -e "^#" \
     -e "dirsToCreate=" \
     -e "^files2copy[[][0-9]+[]]='?\"?[A-Za-z0-9/_~. $]+'?\"?" \
-    $hostConf);then 
+    $hostConf);then
         dbg "$hostConf is not sanitized: $badContent"
         errorExit "$hostConf contains bad things: $badContent"
     fi
@@ -900,7 +900,7 @@ for file in $newFiles $updatedFiles; do
             promptSourceConfigFile=yes
             ;;
         .bashrc.*)
-# There was a change in one of .bashrc.{files} and need to source .bashrc 
+# There was a change in one of .bashrc.{files} and need to source .bashrc
             if [ -z "$promptSourceConfigFile" ]; then
                 foldIt echo ""
                 foldIt echo -e '${INFO}Noticed change in $(echo ~)/${file}${END}'
