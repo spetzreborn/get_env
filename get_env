@@ -865,18 +865,18 @@ if [ -z "$offline" ];then
 fi
 
 # Configuration for all hosts.
-allHostConf="${localWorkDir}/${repository}/${repository}-${branch}/ALL_HOSTS"
+allHostConf="${localWorkDir}/${repository}/${repository}-${branch}/manifest"
 if [ -f "$allHostConf" ];then
     foldIt echo "Found configuration for ${repository}"
     validateConfig "manifest" "$allHostConf"
-    # Source host specific conf and run actions.
+    # Source configuration for all hosts and run actions.
     . "${allHostConf}"
     createDir $dirsToCreate
     for array in "${files2copy[@]}";do
         copyFiles $array
     done
 else
-    errorExit "Cant find 'ALL_HOSTS': $allHostConf"
+    errorExit "Cant find 'manifest': $allHostConf"
 fi
 
 # Empty $files2copy and $dirsToCreate before specific host configuration.
@@ -884,7 +884,7 @@ files2copy=()
 dirsToCreate=""
 
 # Specific host configuration
-hostConf="${localWorkDir}/${repository}/${repository}-${branch}/${HOSTNAME}/${HOSTNAME}"
+hostConf="${localWorkDir}/${repository}/${repository}-${branch}/HOSTS/${HOSTNAME}/manifest"
 if [ -f "${hostConf}" ];then
     foldIt echo "Found host specific configuration"
     validateConfig "manifest" "$hostConf"
