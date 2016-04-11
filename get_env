@@ -168,7 +168,7 @@ report() {
         dbg "\$offline is set, dont report"
         return 0
     fi
-    if [ -n "$reportURL" ];then
+    if [ -n "$reportUrl" ];then
         dbg "\$reportUrl is set, try to reporting"
         i=0
         args=$#
@@ -533,6 +533,7 @@ localWorkDir=$localWorkDir
 #reportUrl=""
 "
 
+    # TODO: Just grep on variables? Set and unset, eg reportUrl can be both.
     confFileVariables=$(echo "$confFileContent" | egrep -c '^[^#]')
     dbg "${FUNCNAME}() leaving function"
 }
@@ -623,6 +624,42 @@ showVariables() {
     dbg "\$quietMode: $quietMode"
     dbg "\$dryrun:$dryrun"
     dbg "\$offline:$offline"
+}
+
+# Check that configuration files only have valid configurations.
+# Arg: config-filetype [get_env|manifest] file
+validateConfig() {
+    dbg "${FUNCNAME}() was called, arg: $*"
+    local confType=$1
+    local confFile=$2
+    local badContent=""
+    local validateString=""
+    dbg "confType = $confType"
+    case "$confType" in
+        "get_env")
+                # TODO: Only accepted variables that we want?
+                dbg "Validate type: get_env"
+                badContent=$(egrep -v \
+                -e "^([A-Za-z_]+=[A-Za-z0-9/_~. ]+)?$" \
+                -e "^#" \
+                $confFile)
+            ;;
+        "manifest")
+                dbg "Validate type: manifest"
+                badContent=$(egrep -v \
+                -e "^#" \
+                -e "dirsToCreate=" \
+                -e "^files2copy[[][0-9]+[]]='?\"?[A-Za-z0-9/_~. $]+'?\"?" \
+                $confFile)
+            ;;
+    esac
+    if [ -n "$badContent" ]; then
+        dbg "$confFile is not sanitized: $badContent"
+        errorExit "$confFile contains bad things: $badContent"
+    else
+        dbg "$confFile is sanitized, no bad content"
+    fi
+    dbg "${FUNCNAME}() leaving function"
 }
 
 # Test if there was a change in get_env - and is needed to be run again.
@@ -747,25 +784,17 @@ if [ -f "$confFile" ];then
     if [ ! -w "$confFile" ] || [ ! -r "$confFile" ];then
         errorExit "No read or write permissions for $confFile"
     fi
-#TODO: Move sanitation to own function? Host specific uses same code
-# Sanitize confFile so that only sane line exists. TODO: Only accepted variables that we want?
-    if badContent=$(egrep -v \
-    -e "^([A-Za-z_]+=[A-Za-z0-9/_~. ]+)?$" \
-    -e "^#" \
-    -e "^files2copy[[][0-9]+[]]='?\"?[A-Za-z0-9/_~. $]+'?\"?" \
-    $confFile);then
-        dbg "$confFile is not sanitized: $badContent"
-        errorExit "$confFile contains bad things: $badContent"
-    else
-        dbg "$confFile is sanitized, no bad content"
-    fi
+
+# Sanitize confFile so that only sane line exists.
+    validateConfig "get_env" "$confFile"
+
 # Matches variables in default confFile and confFile. Only counts VARIABLE_NAME=variable. Variables must be set
+#TODO: Dont invert check, just make regex for variables.
     numberOfVariablesInConfFile=$(egrep -c -v\
     -e "^#" \
     -e "^$" \
     -e "^files2copy[[][0-9]+[]]='?\"?[A-Za-z0-9/_~. $]+'?\"?" \
     $confFile)
-    numberOfVariablesInConfFile=$(($numberOfVariablesInConfFile +1)) # This is because there is an occurrence of 'files2copy' in template.
     if [ "$numberOfVariablesInConfFile" -eq "$confFileVariables" ]; then
         dbg "confFile contains correct number of variables."
     else
@@ -835,19 +864,11 @@ if [ -z "$offline" ];then
 
 fi
 
-# TODO: Make sanitation an function.
 # Configuration for all hosts.
 allHostConf="${localWorkDir}/${repository}/${repository}-${branch}/ALL_HOSTS"
 if [ -f "$allHostConf" ];then
     foldIt echo "Found configuration for ${repository}"
-    if badContent=$(egrep -v \
-    -e "^#" \
-    -e "dirsToCreate=" \
-    -e "^files2copy[[][0-9]+[]]='?\"?[A-Za-z0-9/_~. $]+'?\"?" \
-    $allHostConf);then
-        dbg "$allHostConf is not sanitized: $badContent"
-        errorExit "$allHostConf contains bad things: $badContent"
-    fi
+    validateConfig "manifest" "$allHostConf"
     # Source host specific conf and run actions.
     . "${allHostConf}"
     createDir $dirsToCreate
@@ -866,14 +887,8 @@ dirsToCreate=""
 hostConf="${localWorkDir}/${repository}/${repository}-${branch}/${HOSTNAME}/${HOSTNAME}"
 if [ -f "${hostConf}" ];then
     foldIt echo "Found host specific configuration"
-    if badContent=$(egrep -v \
-    -e "^#" \
-    -e "dirsToCreate=" \
-    -e "^files2copy[[][0-9]+[]]='?\"?[A-Za-z0-9/_~. $]+'?\"?" \
-    $hostConf);then
-        dbg "$hostConf is not sanitized: $badContent"
-        errorExit "$hostConf contains bad things: $badContent"
-    fi
+    validateConfig "manifest" "$hostConf"
+
     # Source host specific conf and run actions.
     . "${hostConf}"
     createDir $dirsToCreate
