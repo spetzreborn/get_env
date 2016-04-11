@@ -703,6 +703,7 @@ get_envDiffAndRestart() {
     dbg "${FUNCNAME}() leaving function"
 }
 
+# TODO: Call cleanup() by trap? trap cleanup EXIT
 cleanup() {
 # Remove downloaded files and temporary directories
     dbg "${FUNCNAME}() was called, arg: $*"
