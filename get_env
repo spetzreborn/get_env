@@ -168,7 +168,7 @@ report() {
         dbg "\$offline is set, dont report"
         return 0
     fi
-    if [ -n "$reportURL" ];then
+    if [ -n "$reportUrl" ];then
         dbg "\$reportUrl is set, try to reporting"
         i=0
         args=$#
@@ -320,14 +320,12 @@ gitCloneAndPull() {
     depends git
     local server=$1
     local user=$2
-    local pathToRepository=$(echo $3 | egrep -o '^.+/')
-    #TODO: Make better regex. Now repository is only allowed to be named alphanumeric characters, '_' and '.'
     repository=$(echo $3 | egrep -o '[[:alnum:]_\.]+$')
     local branch=$4
     local sshPort=${5:-"22"}
-    local gitRemoteRepo="ssh://${user}@${server}:${sshPort}/${pathToRepository}${repository}"
+    local gitRemoteRepo="ssh://${user}@${server}:${sshPort}/${pathToRepository}/${repository}"
 
-    # Git may clone both with and without trailing '.git'. Local repository will not have .git, therefor removing it from variable
+    # Git may clone both with and without trailing '.git'. Local repository will not have .git, therefore removing it from variable
     if echo $repository | grep -q '\.git$';then
         repository=$(echo $repository | sed 's/\.git$//')
     fi
@@ -390,6 +388,7 @@ gitCloneAndPull() {
 # TODO: Generic rsync-function. Both gitCloneAndPull() and downloadAndUnzip() uses same code.
     foldIt echo -n "Moving files to $localWorkDir"
     # rsync to $localWorkDir
+    createDir "${localWorkDir}/${repository}/${repository}-${branch}"
     if [ -z "$debug" ];then
         if  rsync -aq --delete --exclude='.git' ${localWorkDir}/git/${repository}/ ${localWorkDir}/${repository}/${repository}-${branch}; then
             ok
@@ -433,8 +432,13 @@ copyFiles() {
 
     for file in $*
     do
-        # If the destfile exist ...
-        if [ -f "${toDir}/${file}" ]; then 
+        # Test if the source file exists
+        if [ ! -f ${localWorkDir}/${repository}/${repository}-${branch}/${fromDir}/${file} ]; then
+            foldIt echo -n "Checking for file ${file}"
+            failed "File does not exists: ${localWorkDir}/${repository}/${repository}-${branch}/${fromDir}/${file}"
+        fi
+        # If the destination file exist ...
+        if [ -f "${toDir}/${file}" ]; then
             # .. diff it with the source file
             if ! diff -q  ${localWorkDir}/${repository}/${repository}-${branch}/${fromDir}/${file} ${toDir}/${file} >/dev/null 2>&1; then
                 if [ -z "$dryrun" ];then
@@ -469,7 +473,7 @@ copyFiles() {
                         dbg "Updated file: ${toDir}/${file} copied ok"
                         updatedFiles="${updatedFiles}${file} "
                     else
-                        failed
+                        failed "Could not copy ${localWorkDir}/${repository}/${repository}-${branch}/${fromDir}/${file} to ${toDir}/${file}"
                     fi
                 fi
             else
@@ -487,7 +491,7 @@ copyFiles() {
                     dbg "New file: ${toDir}/${file} copied ok"
                     newFiles="${newFiles}${file} "
                 else
-                    failed
+                    failed "Could not copy ${localWorkDir}/${repository}/${repository}-${branch}/${fromDir}/${file} to ${toDir}/${file}"
                 fi
             fi
         fi
@@ -508,37 +512,28 @@ get_envRepository=${get_envRepository:-"get_env"}
 # Branch from witch get_env is downloaded from. master or trunk
 get_envBranch=${get_envBranch:-"master"}
 
-# Where to download dotfiles from.
+# Where to download environment from.
 gitServer=${gitServer:-"github.com"}
-# github user
+# git user
 gitUser=${gitUser:-"spetzreborn"}
 # git repository
 repository=${repository:-"dotfiles"}
-# Branch from witch get_env is downloaded from. master or trunk
+# Branch from witch environment is downloaded from. master or trunk
 branch=${branch:-"master"}
+
+# If not using github as repository you may need to set these settings:
+# 'git clone ssh://${gitUser}@${gitServer}:${sshPort}/${pathToRepository}${repository}'
+sshPort=${sshPort:-"22"}
+pathToRepository=${pathToRepository:-""}
 
 # Path to local repository
 localWorkDir=$localWorkDir
 
 # If set, report status to this address. (Uses report.php from github.com/spetzreborn/get_env)
 #reportUrl=""
-
-
-# Files to be copied to various directories. Work like:
-# [directory where file lives in repo] [directory where file should go] [files]
-files2copy[0]='HOME $HOME .testrc'
-
-# This is an more realistic example
-# Files to be copied from [HOME] to [$HOME]
-# files2copy[0]='HOME $HOME .bashrc .profile .vimrc .gitconfig'
-# Files to be copies from [HOME/vim] to [$HOME/.vim/plugin]
-# files2copy[1]='HOME/vim $HOME/.vim/plugin gnupg.vim'
-
-# Create directories
-# I like to have an empty directory named 'sshfs' in my homedir for mounting sshfs.
-dirsToCreate="$HOME/sshfs"
 "
 
+    # TODO: Just grep on variables? Set and unset, eg reportUrl can be both.
     confFileVariables=$(echo "$confFileContent" | egrep -c '^[^#]')
     dbg "${FUNCNAME}() leaving function"
 }
@@ -631,6 +626,42 @@ showVariables() {
     dbg "\$offline:$offline"
 }
 
+# Check that configuration files only have valid configurations.
+# Arg: config-filetype [get_env|manifest] file
+validateConfig() {
+    dbg "${FUNCNAME}() was called, arg: $*"
+    local confType=$1
+    local confFile=$2
+    local badContent=""
+    local validateString=""
+    dbg "confType = $confType"
+    case "$confType" in
+        "get_env")
+                # TODO: Only accepted variables that we want?
+                dbg "Validate type: get_env"
+                badContent=$(egrep -v \
+                -e "^([A-Za-z_]+=[A-Za-z0-9/_~. ]+)?$" \
+                -e "^#" \
+                $confFile)
+            ;;
+        "manifest")
+                dbg "Validate type: manifest"
+                badContent=$(egrep -v \
+                -e "^#" \
+                -e "dirsToCreate=" \
+                -e "^files2copy[[][0-9]+[]]='?\"?[A-Za-z0-9/_~. $]+'?\"?" \
+                $confFile)
+            ;;
+    esac
+    if [ -n "$badContent" ]; then
+        dbg "$confFile is not sanitized: $badContent"
+        errorExit "$confFile contains bad things: $badContent"
+    else
+        dbg "$confFile is sanitized, no bad content"
+    fi
+    dbg "${FUNCNAME}() leaving function"
+}
+
 # Test if there was a change in get_env - and is needed to be run again.
 # Need absolute name in from file, so it truly can make variable name.
 # This diff dose not care about comments.
@@ -640,7 +671,7 @@ get_envDiffAndRestart() {
     if ! diff -q -I '^# .*'  ~/$myName ${get_envDownloaded} >/dev/null 2>&1; then
         foldIt echo -e '${INFO}Found newer     $myName ${END}'
         if [ -n "$noGet_envUpdate" ] || [ -n "$dryrun" ]; then
-            dbg "$noGet_envUpdate $dryrun is set, dont replace or run newer" 
+            dbg "$noGet_envUpdate $dryrun is set, dont replace or run newer"
             foldIt echo "Do not run newer ${myName}, $noGet_envUpdate $dryrun is invoked."
         else
             foldIt echo -en "Replacing       $(echo ~)/${myName}"
@@ -672,6 +703,7 @@ get_envDiffAndRestart() {
     dbg "${FUNCNAME}() leaving function"
 }
 
+# TODO: Call cleanup() by trap? trap cleanup EXIT
 cleanup() {
 # Remove downloaded files and temporary directories
     dbg "${FUNCNAME}() was called, arg: $*"
@@ -734,7 +766,7 @@ fi
 dbg "I have started, read variables and functions and are on line:$LINENO"
 showVariables
 
-# Verify write permissions in homedirectory
+# Verify write permissions in home directory
 if [ ! -w ~ ];then
     errorExit "Have no write permissions in $(echo ~)"
 fi
@@ -743,7 +775,7 @@ fi
 # If argument -r was not given, set default $localWorkDir to absolute path
 if [ -z "$localWorkDir" ]; then
     localWorkDir="$(echo ~/.${myName})"
-    dbg 'Setting defult $localWorkDir to absolut path: ' "$localWorkDir"
+    dbg 'Setting defult $localWorkDir to absolute path: ' "$localWorkDir"
 fi
 
 # generateConfFile() must be run before attempting to compare confFiles, but after $localWorkDir is set.
@@ -753,24 +785,17 @@ if [ -f "$confFile" ];then
     if [ ! -w "$confFile" ] || [ ! -r "$confFile" ];then
         errorExit "No read or write permissions for $confFile"
     fi
-# Sanitize confFile so that only sane line exists. TODO: Only accepted  variables that we want?
-    if badContent=$(egrep -v \
-    -e "^([A-Za-z_]+=[A-Za-z0-9/_~. ]+)?$" \
-    -e "^#" \
-    -e "^files2copy[[][0-9]+[]]='?\"?[A-Za-z0-9/_~. $]+'?\"?" \
-    $confFile);then 
-        dbg "$confFile is not sanitized: $badContent"
-        errorExit "$confFile contains bad things: $badContent"
-    else
-        dbg "$confFile is sanitized, no bad content"
-    fi
+
+# Sanitize confFile so that only sane line exists.
+    validateConfig "get_env" "$confFile"
+
 # Matches variables in default confFile and confFile. Only counts VARIABLE_NAME=variable. Variables must be set
+#TODO: Dont invert check, just make regex for variables.
     numberOfVariablesInConfFile=$(egrep -c -v\
     -e "^#" \
     -e "^$" \
     -e "^files2copy[[][0-9]+[]]='?\"?[A-Za-z0-9/_~. $]+'?\"?" \
     $confFile)
-    numberOfVariablesInConfFile=$(($numberOfVariablesInConfFile +1)) # This is because there is an occurrence of 'files2copy' in template.
     if [ "$numberOfVariablesInConfFile" -eq "$confFileVariables" ]; then
         dbg "confFile contains correct number of variables."
     else
@@ -834,32 +859,37 @@ if [ -z "$offline" ];then
     if [ "$gitServer" = "github.com" ];then
         downloadAndUnzip $gitServer $gitUser $repository $branch
     else
-        gitCloneAndPull $gitServer $gitUser $repository $branch
+        gitCloneAndPull $gitServer $gitUser $repository $branch $sshPort
     fi
+# TODO: When offline, check out correct branch.
 
 fi
 
-# Creates directories from confFile
-createDir $dirsToCreate
+# Configuration for all hosts.
+allHostConf="${localWorkDir}/${repository}/${repository}-${branch}/manifest"
+if [ -f "$allHostConf" ];then
+    foldIt echo "Found configuration for ${repository}"
+    validateConfig "manifest" "$allHostConf"
+    # Source configuration for all hosts and run actions.
+    . "${allHostConf}"
+    createDir $dirsToCreate
+    for array in "${files2copy[@]}";do
+        copyFiles $array
+    done
+else
+    errorExit "Cant find 'manifest': $allHostConf"
+fi
 
-# TODO Move configuration to repo? E.g ${localWorkDir}/${repository}/${repository}-${branch}/ALL_HOSTS
-
-# Call copyFiles() for all values in array $files2copy
-for array in "${files2copy[@]}";do
-    copyFiles $array
-done
+# Empty $files2copy and $dirsToCreate before specific host configuration.
+files2copy=()
+dirsToCreate=""
 
 # Specific host configuration
-hostConf="${localWorkDir}/${repository}/${repository}-${branch}/${HOSTNAME}/${HOSTNAME}"
+hostConf="${localWorkDir}/${repository}/${repository}-${branch}/HOSTS/${HOSTNAME}/manifest"
 if [ -f "${hostConf}" ];then
-    dbg "Found host specific configuration"
-    if badContent=$(egrep -v \
-    -e "^#" \
-    -e "^files2copy[[][0-9]+[]]='?\"?[A-Za-z0-9/_~. $]+'?\"?" \
-    $hostConf);then 
-        dbg "$hostConf is not sanitized: $badContent"
-        errorExit "$hostConf contains bad things: $badContent"
-    fi
+    foldIt echo "Found host specific configuration"
+    validateConfig "manifest" "$hostConf"
+
     # Source host specific conf and run actions.
     . "${hostConf}"
     createDir $dirsToCreate
@@ -879,14 +909,14 @@ for file in $newFiles $updatedFiles; do
 # There was a change in .bashrc and need to source.
             echo ""
             foldIt echo -e '${INFO}Noticed change in $(echo ~)/.bashrc${END}'
-            foldIT echo ""
+            foldIt echo ""
             foldIt echo -e '${INFO}You need to source .bashrc to get the new functions in this shell${END}'
             foldIt echo "eg:  . ~/.bashrc"
             bar
             promptSourceConfigFile=yes
             ;;
         .bashrc.*)
-# There was a change in one of .bashrc.{files} and need to source .bashrc 
+# There was a change in one of .bashrc.{files} and need to source .bashrc
             if [ -z "$promptSourceConfigFile" ]; then
                 foldIt echo ""
                 foldIt echo -e '${INFO}Noticed change in $(echo ~)/${file}${END}'
@@ -907,7 +937,7 @@ done
 #    ;;
 #    esac
 # done
-# 
+#
 # # Special things for updated files:
 # for file in $updatedFiles; do
 #    case $file in
