@@ -237,6 +237,7 @@ cat <<EOF
     -h   This helptext
     -l   If debug is used, use this file as debugLog.
     -n   Dryrun - dont replace files, just show which files would be replaced.
+         May create local workdir for ${myName}.
     -q   Quietmode - no output exept errors, good for running from cron.
     -r   Directory to create and download repo to, default same name as my filename (${myName})
     -u   Do not update ${myName} even if newer is found
@@ -256,7 +257,7 @@ downloadAndUnzip() {
     local inFile="https://${server}/${user}/${repository}/archive/${branch}.zip"
     local outDir="${downloadDir}/${repository}"
     local outFile="${repository}-${branch}.zip"
-    createDir -q ${downloadDir}/${repository}
+    createDir -f -q ${downloadDir}/${repository}
     foldIt echo -n "Downloading ${inFile}"
 
     # Download
@@ -330,7 +331,7 @@ gitCloneAndPull() {
         repository=$(echo $repository | sed 's/\.git$//')
     fi
 
-    createDir -q ${localWorkDir}/git
+    createDir -q -f ${localWorkDir}/git
 
 # Check if target directory exists.
     if [ -d "${localWorkDir}/git/${repository}" ]; then
@@ -388,7 +389,7 @@ gitCloneAndPull() {
 # TODO: Generic rsync-function. Both gitCloneAndPull() and downloadAndUnzip() uses same code.
     foldIt echo -n "Moving files to $localWorkDir"
     # rsync to $localWorkDir
-    createDir "${localWorkDir}/${repository}/${repository}-${branch}"
+    createDir -f "${localWorkDir}/${repository}/${repository}-${branch}"
     if [ -z "$debug" ];then
         if  rsync -aq --delete --exclude='.git' ${localWorkDir}/git/${repository}/ ${localWorkDir}/${repository}/${repository}-${branch}; then
             ok
@@ -564,16 +565,26 @@ writeConfFile() {
 }
 
 # Creates a directory
-# TODO make createDir() compatible with dryrun option
+# Arg: Optional [-q|-f] /path/to/directory
+# -q = quiet, dont show
+# -f = force, create directory even if "dryrun" is invoked.
 createDir() {
     dbg "${FUNCNAME}() was called, arg: $*"
-    if [ "$1" == "-q" ];then
-        dbg "Set quiet for createDir()"
-        quiet="yes"
-        shift
-    else
-        quiet=""
-    fi
+    local quiet=""
+    local force=""
+    while [ $# -gt 1 ]; do
+        case "$1" in
+            -q)
+                dbg "Set quiet for createDir()"
+                quiet="yes"
+                shift
+            ;;
+            -f)
+                dbg "Set force for createDir()"
+                force="yes"
+                shift
+        esac
+    done
 
     for dir in $*;do
         dbg "Test if $dir exists"
@@ -581,14 +592,22 @@ createDir() {
             if [ -z "$quiet" ];then
                 foldIt echo -n "Creating directory $dir"
             fi
-            if mkdir -p $dir;then
-                dbg "Created $dir"
+            if [ -n "$dryrun" ] && [ -z "$force" ];then
+                dbg "\$dryrun set, dont create directory"
                 if [ -z "$quiet" ];then
-                    ok
+                    dryRun
                 fi
-                createdDirs="${createdDirs}$dir "
+                dryrunCreatedDirs="${dryrunCreatedDirs}${dir} "
             else
-                failed "Failed to create $dir"
+                    if mkdir -p $dir;then
+                        dbg "Created $dir"
+                        if [ -z "$quiet" ];then
+                            ok
+                        fi
+                        createdDirs="${createdDirs}$dir "
+                    else
+                        failed "Failed to create $dir"
+                    fi
             fi
         else
             dbg "Dir $dir already exists"
@@ -840,7 +859,7 @@ else
 fi
 
 # Create $localWorkDir directory
-createDir $localWorkDir
+createDir -f $localWorkDir
 
 # Download latest get_env and repository as zip from github
 if [ -z "$offline" ];then
@@ -872,7 +891,9 @@ if [ -f "$allHostConf" ];then
     validateConfig "manifest" "$allHostConf"
     # Source configuration for all hosts and run actions.
     . "${allHostConf}"
-    createDir $dirsToCreate
+    for dir in $dirsToCreate;do
+        createDir $dir
+    done
     for array in "${files2copy[@]}";do
         copyFiles $array
     done
@@ -892,7 +913,9 @@ if [ -f "${hostConf}" ];then
 
     # Source host specific conf and run actions.
     . "${hostConf}"
-    createDir $dirsToCreate
+    for dir in $dirsToCreate;do
+        createDir $dir
+    done
     for array in "${files2copy[@]}";do
         copyFiles $array
     done
@@ -951,10 +974,15 @@ if [ -z "$newFiles" ] && [ -z "$updatedFiles" ] && [ -z "$dryrun" ];then
 fi
 
 if [ -n "$dryrun" ];then
-    if [ -z "$dryruNewFiles" ] && [ -z "$dryrunUpdatedFiles" ];then
+    if [ -z "$dryrunNewFiles" ] && [ -z "$dryrunUpdatedFiles" ];then
         foldIt echo "No files should been updated."
     else
-        foldIt echo "These files should have been changed: $dryruNewFiles $dryrunUpdatedFiles"
+        foldIt echo "These files should have been changed: $dryrunNewFiles $dryrunUpdatedFiles"
+    fi
+    if [ -z "$dryrunCreatedDirs" ];then
+        foldIt echo "No new directories would have been created"
+    else
+        foldIt echo "These new directories would have been created: $dryrunCreatedDirs"
     fi
 fi
 
