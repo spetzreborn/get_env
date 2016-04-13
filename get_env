@@ -26,7 +26,7 @@ depends() {
     done
 }
 
-depends wget logger tput cp rm cat diff host mkdir grep egrep sed fold unzip rsync
+depends wget logger tput cp rm cat tac diff host mkdir grep egrep sed awk fold unzip rsync
 
 
 # The script name
@@ -155,8 +155,17 @@ ncfailed() {
 # Debug function
 dbg() {
     if [ -n "$debug" ];then
-        logger -t $0 DEBUG:: " $*"
-        echo "$(date +'%Y-%m-%dT%H:%M:%S') $0 DEBUG:: $*" | tee -a $debugLog
+        local frame=0
+        local functionStacktrace=""
+        local debugMessage=""
+        while caller $frame > /dev/null; do
+            functionStacktrace="${functionStacktrace}$(caller $frame | awk '{print $2}')() "
+            ((frame++));
+        done
+        functionStacktrace=$(echo $functionStacktrace | tr ' ' '\n' |tac| tr '\n' ' ')
+        debugMessage="${functionStacktrace}DEBUG:: ${*}"
+        logger -t $0 "${debugMessage}"
+        echo "$(date +'%Y-%m-%dT%H:%M:%S') ${0} ${debugMessage}" | tee -a $debugLog
     fi
     }
 
