@@ -735,7 +735,9 @@ get_envDiffAndRestart() {
 cleanup() {
 # Remove downloaded files and temporary directories
     dbg "${FUNCNAME}() was called, arg: $*"
-    rm -rf ${downloadDir}
+    if [ -d ${downloadDir} ]; then
+        rm -r ${downloadDir}
+    fi
     dbg "${FUNCNAME}() leaving function"
 }
 
