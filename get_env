@@ -534,7 +534,7 @@ branch=${branch:-"master"}
 # If not using github as repository you may need to set these settings:
 # 'git clone ssh://${gitUser}@${gitServer}:${sshPort}/${pathToRepository}${repository}'
 sshPort=${sshPort:-"22"}
-pathToRepository=${pathToRepository:-""}
+pathToRepository=${pathToRepository:-"none"}
 
 # Path to local repository
 localWorkDir=$localWorkDir
