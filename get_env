@@ -731,6 +731,30 @@ get_envDiffAndRestart() {
     dbg "${FUNCNAME}() leaving function"
 }
 
+# Wrapper function for syncing files.
+# Arg: sourceDir destDir
+sync_files() {
+    dbg "${FUNCNAME}() was called, arg: $*"
+    local sourceDir=$1
+    local destDir=$2
+    if [ -z "$debug" ];then
+        if  rsync -aq --delete $sourceDir $destDir; then
+            ok
+            dbg "rsync to $destDir"
+        else
+            failed "Failed to rsync"
+        fi
+    else
+        if  rsync -a --delete $sourceDir $destDir; then
+            ok
+            dbg "rsync to $destDir"
+        else
+            failed "Failed to sync"
+        fi
+    fi
+    dbg "${FUNCNAME}() leaving function"
+}
+
 # TODO: Call cleanup() by trap? trap cleanup EXIT
 cleanup() {
 # Remove downloaded files and temporary directories
