@@ -737,6 +737,9 @@ sync_files() {
     dbg "${FUNCNAME}() was called, arg: $*"
     local sourceDir=$1
     local destDir=$2
+    if [ ! -a "$sourceDir" ];then
+        errorExit "$sourceDir does not exists."
+    fi
     if [ -z "$debug" ];then
         if  rsync -aq --delete $sourceDir $destDir; then
             ok
