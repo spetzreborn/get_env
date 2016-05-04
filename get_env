@@ -716,7 +716,7 @@ syncFiles() {
             failed "Failed to rsync"
         fi
     else
-        if  rsync -a --delete $sourceDir $destDir; then
+        if  rsync -av --delete $sourceDir $destDir; then
             ok
             dbg "rsync to $destDir"
         else
