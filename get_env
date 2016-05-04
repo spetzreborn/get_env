@@ -303,7 +303,7 @@ downloadAndUnzip() {
         fi
     fi
     foldIt echo -n "Moving files to $localWorkDir"
-    sync_files "${outDir}/${repository}-${branch}" "${localWorkDir}/${repository}/"
+    syncFiles "${outDir}/${repository}-${branch}" "${localWorkDir}/${repository}/"
     dbg "${FUNCNAME}() leaving function"
 }
 
@@ -381,7 +381,7 @@ gitCloneAndPull() {
 
     foldIt echo -n "Moving files to $localWorkDir"
     createDir -f "${localWorkDir}/${repository}/${repository}-${branch}"
-    sync_files "${localWorkDir}/git/${repository}/" "${localWorkDir}/${repository}/${repository}-${branch}"
+    syncFiles "${localWorkDir}/git/${repository}/" "${localWorkDir}/${repository}/${repository}-${branch}"
 
     # Restore staring branch
     foldIt echo -n "Restoring original branch ${startBranch}"
@@ -701,7 +701,7 @@ get_envDiffAndRestart() {
 
 # Wrapper function for syncing files.
 # Arg: sourceDir destDir
-sync_files() {
+syncFiles() {
     dbg "${FUNCNAME}() was called, arg: $*"
     local sourceDir=$1
     local destDir=$2
