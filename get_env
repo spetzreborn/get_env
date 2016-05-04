@@ -302,24 +302,8 @@ downloadAndUnzip() {
             failed "Failed to unzip"
         fi
     fi
-# TODO: Generic rsync-function. Both gitCloneAndPull() and downloadAndUnzip() uses same code.
     foldIt echo -n "Moving files to $localWorkDir"
-    # rsync to $localWorkDir
-    if [ -z "$debug" ];then
-        if  rsync -aq --delete ${outDir}/${repository}-${branch} ${localWorkDir}/${repository}/; then
-            ok
-            dbg "rsync to $localWorkDir"
-        else
-            failed "Failed to rsync"
-        fi
-    else
-        if  rsync -a --delete ${outDir}/${repository}-${branch} ${localWorkDir}/${repository}/; then
-            ok
-            dbg "rsync to $localWorkDir"
-        else
-            failed "Failed to rsync"
-        fi
-    fi
+    syncFiles "${outDir}/${repository}-${branch}" "${localWorkDir}/${repository}/"
     dbg "${FUNCNAME}() leaving function"
 }
 
@@ -395,25 +379,9 @@ gitCloneAndPull() {
         failed "Could not checkout branch ${branch}"
     fi
 
-# TODO: Generic rsync-function. Both gitCloneAndPull() and downloadAndUnzip() uses same code.
     foldIt echo -n "Moving files to $localWorkDir"
-    # rsync to $localWorkDir
     createDir -f "${localWorkDir}/${repository}/${repository}-${branch}"
-    if [ -z "$debug" ];then
-        if  rsync -aq --delete --exclude='.git' ${localWorkDir}/git/${repository}/ ${localWorkDir}/${repository}/${repository}-${branch}; then
-            ok
-            dbg "rsync from ${localWorkDir}/git/${repository} to ${localWorkDir}/${repository}/"
-        else
-            failed "Failed to rsync"
-        fi
-    else
-        if  rsync -av --delete --exclude='.git'  ${localWorkDir}/git/${repository}/ ${localWorkDir}/${repository}/${repository}-${branch}; then
-            ok
-            dbg "rsync from ${localWorkDir}/git/${repository} to ${localWorkDir}/${repository}/"
-        else
-            failed "Failed to rsync"
-        fi
-    fi
+    syncFiles "${localWorkDir}/git/${repository}/" "${localWorkDir}/${repository}/${repository}-${branch}"
 
     # Restore staring branch
     foldIt echo -n "Restoring original branch ${startBranch}"
@@ -727,6 +695,33 @@ get_envDiffAndRestart() {
         fi
     else
         foldIt echo "Already running latest $myName"
+    fi
+    dbg "${FUNCNAME}() leaving function"
+}
+
+# Wrapper function for syncing files.
+# Arg: sourceDir destDir
+syncFiles() {
+    dbg "${FUNCNAME}() was called, arg: $*"
+    local sourceDir=$1
+    local destDir=$2
+    if [ ! -e "$sourceDir" ];then
+        errorExit "$sourceDir does not exists."
+    fi
+    if [ -z "$debug" ];then
+        if  rsync -aq --delete $sourceDir $destDir; then
+            ok
+            dbg "rsync to $destDir"
+        else
+            failed "Failed to rsync"
+        fi
+    else
+        if  rsync -av --delete $sourceDir $destDir; then
+            ok
+            dbg "rsync to $destDir"
+        else
+            failed "Failed to sync"
+        fi
     fi
     dbg "${FUNCNAME}() leaving function"
 }
