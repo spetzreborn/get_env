@@ -595,6 +595,7 @@ createDir() {
 
 # Echo variables to debug
 showVariables() {
+    dbg "${FUNCNAME}() was called, arg: $*"
     dbg "Variables I have: "
     dbg "\$myName: $myName"
     dbg "\$gituser: $gituser"
@@ -608,18 +609,26 @@ showVariables() {
     dbg "\$gitUser: $gitUser"
     dbg "\$repository: $repository"
     dbg "\$branch: $branch"
-    # Call dbg() for all values in array $files2copy
-    local i=0
-    for array in "${files2copy[@]}";do
-        dbg "\$files2copy[$i]: $array"
-        ((i++))
-    done
     dbg "\$debug:$debug"
     dbg "\$debugLog: $debugLog"
     dbg "\$noGet_envUpdate: $noGet_envUpdate"
     dbg "\$quietMode: $quietMode"
     dbg "\$dryrun:$dryrun"
     dbg "\$offline:$offline"
+    dbg "${FUNCNAME}() leaving function"
+}
+
+showVariablesHostConfig() {
+    dbg "${FUNCNAME}() was called, arg: $*"
+    dbg "Variables for $1:"
+    dbg "\$dirsToCreate: $dirsToCreate"
+    # Call dbg() for all values in array $files2copy
+    local i=0
+    for array in "${files2copy[@]}";do
+        dbg "\$files2copy[$i]: $array"
+        ((i++))
+    done
+    dbg "${FUNCNAME}() leaving function"
 }
 
 # Check that configuration files only have valid configurations.
@@ -897,6 +906,7 @@ if [ -f "$allHostConf" ];then
     validateConfig "manifest" "$allHostConf"
     # Source configuration for all hosts and run actions.
     . "${allHostConf}"
+    showVariablesHostConfig "allHostConf"
     for dir in $dirsToCreate;do
         createDir $dir
     done
@@ -919,6 +929,7 @@ if [ -f "${hostConf}" ];then
 
     # Source host specific conf and run actions.
     . "${hostConf}"
+    showVariablesHostConfig "specific HostConf"
     for dir in $dirsToCreate;do
         createDir $dir
     done
