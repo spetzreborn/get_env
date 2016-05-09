@@ -16,6 +16,8 @@
 # along with this program.  If not, see {http://www.gnu.org/licenses/}.
 #
 
+set -u
+
 # This functions starts the script so all functions don't need to be sourced before exiting.
 depends() {
     for app in $@;do
@@ -61,9 +63,18 @@ warning=$red
 
 downloadDir=$(mktemp -d /tmp/${myName}.XXXXXX)
 debug=""
+debugLog=""
+offline=""
+createdDirs=""
+updatedFiles=""
+newFiles=""
+dryrun=""
+dryrunCreatedDirs=""
+dryrunUpdatedFiles=""
+dryrunNewFiles=""
 noGet_envUpdate=""
 quietMode=""
-dryrun=""
+reportUrl=""
 ddate=$(date +'%Y-%m-%dT%H:%M:%S')
 
 ###  Functions
@@ -153,6 +164,7 @@ ncfailed() {
 
 # Reverse array. Take arguments in: "arrayname"
 reverseArray() {
+    set +u
     local arrayname=${1:?Array name required} array revarray e
     eval "array=( \"\${$arrayname[@]}\" )"
     for e in "${array[@]}"
@@ -160,6 +172,7 @@ reverseArray() {
         revarray=( "$e" "${revarray[@]}" )
     done
     eval "$arrayname=( \"\${revarray[@]}\" )"
+    set -u
 }
 
 # Debug function
@@ -518,12 +531,12 @@ repository=${repository:-"dotfiles"}
 branch=${branch:-"master"}
 
 # If not using github as repository you may need to set these settings:
-# 'git clone ssh://${gitUser}@${gitServer}:${sshPort}/${pathToRepository}${repository}'
+# 'git clone ssh://gitUser@gitServer:sshPort/pathToRepository/repository'
 sshPort=${sshPort:-"22"}
 pathToRepository=${pathToRepository:-"none"}
 
 # Path to local repository
-localWorkDir=$localWorkDir
+localWorkDir=${localWorkDir}
 
 # If set, report status to this address. (Uses report.php from github.com/spetzreborn/get_env)
 #reportUrl=""
@@ -614,24 +627,24 @@ createDir() {
 showVariables() {
     dbg "${FUNCNAME}() was called, arg: $*"
     dbg "Variables I have: "
-    dbg "\$myName: $myName"
-    dbg "\$gituser: $gituser"
-    dbg "\$gitserver: $gitserver"
-    dbg "\$localWorkDir: $localWorkDir"
-    dbg "\$get_envGitServer: $get_envGitServer"
-    dbg "\$get_envGitUser: $get_envGitUser"
-    dbg "\$get_envRepository: $get_envRepository"
-    dbg "\$get_envBranch: $get_envBranch"
-    dbg "\$gitServer: $gitServer"
-    dbg "\$gitUser: $gitUser"
-    dbg "\$repository: $repository"
-    dbg "\$branch: $branch"
-    dbg "\$debug:$debug"
-    dbg "\$debugLog: $debugLog"
-    dbg "\$noGet_envUpdate: $noGet_envUpdate"
-    dbg "\$quietMode: $quietMode"
-    dbg "\$dryrun:$dryrun"
-    dbg "\$offline:$offline"
+    dbg "\$myName: ${myName}"
+    dbg "\$gituser: ${gituser:-""}"
+    dbg "\$gitserver: ${gitserver:-""}"
+    dbg "\$localWorkDir: ${localWorkDir:-""}"
+    dbg "\$get_envGitServer: ${get_envGitServer:-""}"
+    dbg "\$get_envGitUser: ${get_envGitUser:-""}"
+    dbg "\$get_envRepository: ${get_envRepository:-""}"
+    dbg "\$get_envBranch: ${get_envBranch:-""}"
+    dbg "\$gitServer: ${gitServer:-""}"
+    dbg "\$gitUser: ${gitUser:-""}"
+    dbg "\$repository: ${repository:-""}"
+    dbg "\$branch: ${branch:-""}"
+    dbg "\$debug:${debug:-""}"
+    dbg "\$debugLog: ${debugLog:-""}"
+    dbg "\$noGet_envUpdate: ${noGet_envUpdate:-""}"
+    dbg "\$quietMode: ${quietMode:-""}"
+    dbg "\$dryrun:${dryrun:-""}"
+    dbg "\$offline:${offline:-""}"
     dbg "${FUNCNAME}() leaving function"
 }
 
@@ -774,7 +787,7 @@ while getopts ":dfhl:nqr:u" opt; do
     case $opt in
         d)
         debug="-d"
-        echo "Debug is set, saving debugLog to: $debugLog"
+        echo "Debug is set, saving debugLog to: ${debugLog}"
         ;;
         f)
         offline="true"
@@ -822,7 +835,7 @@ if [ ! -w ~ ];then
 fi
 
 # If argument -r was not given, set default $localWorkDir to absolute path
-if [ -z "$localWorkDir" ]; then
+if [ -z "${localWorkDir:-""}" ]; then
     localWorkDir="$(echo ~/.${myName})"
     dbg 'Setting defult $localWorkDir to absolute path: ' "$localWorkDir"
 fi
