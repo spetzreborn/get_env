@@ -609,7 +609,7 @@ showVariables() {
     dbg "\$repository: $repository"
     dbg "\$branch: $branch"
     # Call dbg() for all values in array $files2copy
-    i=0
+    local i=0
     for array in "${files2copy[@]}";do
         dbg "\$files2copy[$i]: $array"
         ((i++))
