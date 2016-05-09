@@ -111,28 +111,28 @@ bar() {
     if [ -z "$quietMode" ];then
         echo -e "${blue}*-----------*${end}"
     fi
-    }
+}
 
 # Function to echo out coloured stars between sections.
 stars() {
     if [ -z "$quietMode" ];then
         echo -e "${boldRed}*************${end}"
     fi
-    }
+}
 
 # Function to echo out "ok" after a check
 ok() {
     if [ -z "$quietMode" ] || [ -n "$debug" ];then
         $tprint; echo -e "${green}[OK]${end}"
     fi
-    }
+}
 
 # Function to echo out "Dryrun" after a check
 dryRun() {
     if [ -z "$quietMode" ] || [ -n "$debug" ];then
         $tprint; echo -e "${yellow}[Dryrun]${end}"
     fi
-    }
+}
 
 # Function to echo out "failed" after a check, and exit
 failed() {
@@ -140,7 +140,7 @@ failed() {
         $tprint; echo -e "${warning}[FAILED]${end}"
     fi
     errorExit "$@"
-    }
+}
 
 # Non Critical failed.
 ncfailed() {
@@ -150,7 +150,7 @@ ncfailed() {
     if [ -n "$1" ]; then
         foldIt echo -e "INFO: $@"
     fi
-    }
+}
 
 # Reverse array. Take arguments in: "arrayname"
 reverseArray() {
