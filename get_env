@@ -108,12 +108,15 @@ EOF
 
 # Function for word wrapping
 foldIt() {
+# TODO: Fix foldIt() and caller to get rid of eval, and to have to do "set +u"
+    set +u
     input="$@"
     maxwidth=$(($(tput cols) - 15))
     dbg "$(eval $input)"
     if [ -z "$debug" ] && [ -z "$quietMode" ];then
         eval "$input" | fold -s -w $maxwidth
     fi
+    set -u
 }
 
 # Function to echo out a coloured bar between sections.
