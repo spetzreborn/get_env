@@ -152,6 +152,17 @@ ncfailed() {
     fi
     }
 
+# Reverse array. Take arguments in: "arrayname"
+reverseArray() {
+    local arrayname=${1:?Array name required} array revarray e
+    eval "array=( \"\${$arrayname[@]}\" )"
+    for e in "${array[@]}"
+    do
+        revarray=( "$e" "${revarray[@]}" )
+    done
+    eval "$arrayname=( \"\${revarray[@]}\" )"
+}
+
 # Debug function
 dbg() {
     if [ -n "$debug" ];then
