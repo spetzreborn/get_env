@@ -152,22 +152,41 @@ ncfailed() {
     fi
     }
 
+# Reverse array. Take arguments in: "arrayname"
+reverseArray() {
+    local arrayname=${1:?Array name required} array revarray e
+    eval "array=( \"\${$arrayname[@]}\" )"
+    for e in "${array[@]}"
+    do
+        revarray=( "$e" "${revarray[@]}" )
+    done
+    eval "$arrayname=( \"\${revarray[@]}\" )"
+}
+
 # Debug function
 dbg() {
     if [ -n "$debug" ];then
         local frame=0
-        local functionStacktrace=""
+        local i=0
+        local functionStacktrace=()
+        local lineStacktrace=()
         local debugMessage=""
         while caller $frame > /dev/null; do
-            functionStacktrace="${functionStacktrace}$(caller $frame | awk '{print $2}')() "
+            functionStacktrace[$frame]=$(caller $frame | awk '{print $2}')
+            lineStacktrace[$frame]=$(caller $frame | awk '{print $1}')
             ((frame++));
         done
-        functionStacktrace=$(echo $functionStacktrace | tr ' ' '\n' |tac| tr '\n' ' ')
-        debugMessage="${functionStacktrace}DEBUG:: ${*}"
+        reverseArray "functionStacktrace"
+        reverseArray "lineStacktrace"
+        while [ ${#functionStacktrace[@]} -gt $i ];do
+            debugMessage="${debugMessage}${functionStacktrace[$i]}()line ${lineStacktrace[$i]}: "
+            ((i++))
+        done
+        debugMessage="${debugMessage}${*}"
         logger -t $0 "${debugMessage}"
         echo "$(date +'%Y-%m-%dT%H:%M:%S') ${0} ${debugMessage}" | tee -a $debugLog
     fi
-    }
+}
 
 # Reports to web server
 # Takes arguments in:  var0=value0 var1=value1
@@ -595,6 +614,7 @@ createDir() {
 
 # Echo variables to debug
 showVariables() {
+    dbg "${FUNCNAME}() was called, arg: $*"
     dbg "Variables I have: "
     dbg "\$myName: $myName"
     dbg "\$gituser: $gituser"
@@ -608,18 +628,26 @@ showVariables() {
     dbg "\$gitUser: $gitUser"
     dbg "\$repository: $repository"
     dbg "\$branch: $branch"
-    # Call dbg() for all values in array $files2copy
-    i=0
-    for array in "${files2copy[@]}";do
-        dbg "\$files2copy[$i]: $array"
-        ((i++))
-    done
     dbg "\$debug:$debug"
     dbg "\$debugLog: $debugLog"
     dbg "\$noGet_envUpdate: $noGet_envUpdate"
     dbg "\$quietMode: $quietMode"
     dbg "\$dryrun:$dryrun"
     dbg "\$offline:$offline"
+    dbg "${FUNCNAME}() leaving function"
+}
+
+showVariablesHostConfig() {
+    dbg "${FUNCNAME}() was called, arg: $*"
+    dbg "Variables for $1:"
+    dbg "\$dirsToCreate: $dirsToCreate"
+    # Call dbg() for all values in array $files2copy
+    local i=0
+    for array in "${files2copy[@]}";do
+        dbg "\$files2copy[$i]: $array"
+        ((i++))
+    done
+    dbg "${FUNCNAME}() leaving function"
 }
 
 # Check that configuration files only have valid configurations.
@@ -897,6 +925,7 @@ if [ -f "$allHostConf" ];then
     validateConfig "manifest" "$allHostConf"
     # Source configuration for all hosts and run actions.
     . "${allHostConf}"
+    showVariablesHostConfig "allHostConf"
     for dir in $dirsToCreate;do
         createDir $dir
     done
@@ -919,6 +948,7 @@ if [ -f "${hostConf}" ];then
 
     # Source host specific conf and run actions.
     . "${hostConf}"
+    showVariablesHostConfig "specific HostConf"
     for dir in $dirsToCreate;do
         createDir $dir
     done
