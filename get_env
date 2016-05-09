@@ -28,7 +28,6 @@ depends() {
 
 depends wget logger tput cp rm cat tac diff host mkdir grep egrep sed awk fold unzip rsync
 
-
 # The script name
 myName=$(basename $0)
 
@@ -543,7 +542,6 @@ changeConfFile() {
     dbg "${FUNCNAME}() leaving function"
 }
 
-
 writeConfFile() {
     dbg "${FUNCNAME}() was called, arg: $*"
     # First time run - print GNU information
@@ -766,7 +764,6 @@ cleanup() {
 
 ### End of functions
 
-
 # Make tput work in screen
 if [ "$TERM" = "screen" ];then
     TERM=xterm
@@ -823,7 +820,6 @@ showVariables
 if [ ! -w ~ ];then
     errorExit "Have no write permissions in $(echo ~)"
 fi
-
 
 # If argument -r was not given, set default $localWorkDir to absolute path
 if [ -z "$localWorkDir" ]; then
