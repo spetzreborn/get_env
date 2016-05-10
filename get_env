@@ -20,6 +20,7 @@ set -u
 
 # This functions starts the script so all functions don't need to be sourced before exiting.
 depends() {
+    local app=""
     for app in ${@};do
         if ! which ${app} > /dev/null;then
             echo "Missing program \"${app}\""
@@ -209,19 +210,22 @@ dbg() {
 # Takes arguments in:  var0=value0 var1=value1
 report() {
     dbg "${FUNCNAME}() was called, arg: ${*}"
+    local i=0
+    local args=${#}
+    local awn=""
+    local doReport=""
     if [ -n "${offline}" ];then
         dbg "\${offline} is set, dont report"
         return 0
     fi
     if [ -n "${reportUrl}" ];then
         dbg "\${reportUrl} is set, try to reporting"
-        i=0
-        args=${#}
         while [ ${args} -gt ${i} ];do
             awn="${awn}${1}&"
             shift
             ((i++))
         done
+        # TODO: Refactor to not use eval
         doReport='wget "${reportUrl}" -q -O /dev/null --post-data "
 date=$(date +${dateFormat})&
 hostname=${HOSTNAME}&
@@ -350,6 +354,7 @@ gitCloneAndPull() {
     depends git
     local server=${1}
     local user=${2}
+    # ${repository} cant be local, we use modified ${repository} later in script.
     repository=$(echo ${3} | egrep -o '[[:alnum:]_\.]+$')
     local branch=${4}
     local sshPort=${5:-"22"}
@@ -441,6 +446,7 @@ copyFiles() {
     shift
     local toDir=${1}
     shift
+    local file=""
     # Test if ${toDir} exists
     createDir ${toDir}
 
@@ -584,6 +590,7 @@ createDir() {
     dbg "${FUNCNAME}() was called, arg: ${*}"
     local quiet=""
     local force=""
+    local dir=""
     while [ ${#} -gt 1 ]; do
         case "${1}" in
             -q)
@@ -659,6 +666,7 @@ showVariablesHostConfig() {
     dbg "\${dirsToCreate}: ${dirsToCreate}"
     # Call dbg() for all values in array ${files2copy}
     local i=0
+    local array=""
     for array in "${files2copy[@]}";do
         dbg "\${files2copy[${i}]}: ${array}"
         ((i++))
@@ -707,7 +715,7 @@ validateConfig() {
 # This diff dose not care about comments.
 get_envDiffAndRestart() {
     dbg "${FUNCNAME}() was called, arg: ${*}"
-    get_envDownloaded="${localWorkDir}/${get_envRepository}/${get_envRepository}-${get_envBranch}/${myAbsoluteName}"
+    local get_envDownloaded="${localWorkDir}/${get_envRepository}/${get_envRepository}-${get_envBranch}/${myAbsoluteName}"
     if ! diff -q -I '^# .*'  ~/${myName} ${get_envDownloaded} >/dev/null 2>&1; then
         foldIt echo -e '${INFO}Found newer     ${myName} ${END}'
         if [ -n "${noGet_envUpdate}" ] || [ -n "${dryrun}" ]; then
