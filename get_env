@@ -75,7 +75,8 @@ dryrunNewFiles=""
 noGet_envUpdate=""
 quietMode=""
 reportUrl=""
-ddate=$(date +'%Y-%m-%dT%H:%M:%S')
+dateFormat='%Y-%m-%dT%H:%M:%S'
+ddate=$(date +${dateFormat})
 
 ###  Functions
 
@@ -110,8 +111,8 @@ EOF
 foldIt() {
 # TODO: Fix foldIt() and caller to get rid of eval, and to have to do "set +u"
     set +u
-    input="${@}"
-    maxwidth=$(($(tput cols) - 15))
+    local input="${@}"
+    local maxwidth=$(($(tput cols) - 15))
     dbg "$(eval ${input})"
     if [ -z "${debug}" ] && [ -z "${quietMode}" ];then
         eval "${input}" | fold -s -w ${maxwidth}
@@ -167,6 +168,7 @@ ncfailed() {
 
 # Reverse array. Take arguments in: "arrayname"
 reverseArray() {
+    # TODO: Fix reverseArray() to get rid of eval, and to have to do "set +u"
     set +u
     local arrayname=${1:?Array name required} array revarray e
     eval "array=( \"\${${arrayname}[@]}\" )"
@@ -199,7 +201,7 @@ dbg() {
         done
         debugMessage="${debugMessage}${*}"
         logger -t ${0} "${debugMessage}"
-        echo "$(date +'%Y-%m-%dT%H:%M:%S') ${0} ${debugMessage}" | tee -a ${debugLog}
+        echo "$(date +"${dateFormat}") ${0} ${debugMessage}" | tee -a ${debugLog}
     fi
 }
 
@@ -221,7 +223,7 @@ report() {
             ((i++))
         done
         doReport='wget "${reportUrl}" -q -O /dev/null --post-data "
-date=$(date +'%Y-%m-%dT%H:%M:%S')&
+date=$(date +${dateFormat})&
 hostname=${HOSTNAME}&
 user=${USER}&
 get_envGitServer=${get_envGitServer}&
