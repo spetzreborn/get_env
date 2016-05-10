@@ -16,11 +16,14 @@
 # along with this program.  If not, see {http://www.gnu.org/licenses/}.
 #
 
+set -u
+
 # This functions starts the script so all functions don't need to be sourced before exiting.
 depends() {
-    for app in $@;do
-        if ! which $app > /dev/null;then
-            echo "Missing program \"$app\""
+    local app=""
+    for app in ${@};do
+        if ! which ${app} > /dev/null;then
+            echo "Missing program \"${app}\""
             exit 1
         fi
     done
@@ -28,9 +31,8 @@ depends() {
 
 depends wget logger tput cp rm cat tac diff host mkdir grep egrep sed awk fold unzip rsync
 
-
 # The script name
-myName=$(basename $0)
+myName=$(basename ${0})
 
 # The absolute script name, on server, and default name.
 myAbsoluteName=get_env
@@ -54,27 +56,37 @@ end='\033[0m'
 
 # Values for Warnings and Info text
 tput=$(which tput)
-position=$(($($tput cols) - 10))
-tprint="$tput hpa $position"
+position=$(($(${tput} cols) - 10))
+tprint="${tput} hpa ${position}"
 # Colors for Info and Warning texts.
-info=$yellow
-warning=$red
+info=${yellow}
+warning=${red}
 
 downloadDir=$(mktemp -d /tmp/${myName}.XXXXXX)
 debug=""
+debugLog=""
+offline=""
+createdDirs=""
+updatedFiles=""
+newFiles=""
+dryrun=""
+dryrunCreatedDirs=""
+dryrunUpdatedFiles=""
+dryrunNewFiles=""
 noGet_envUpdate=""
 quietMode=""
-dryrun=""
-ddate=$(date +'%Y-%m-%dT%H:%M:%S')
+reportUrl=""
+dateFormat='%Y-%m-%dT%H:%M:%S'
+ddate=$(date +${dateFormat})
 
 ###  Functions
 
 # Function to print GNU disclaimer
 gnuLicense() {
-    dbg "${FUNCNAME}() was called, arg: $*"
+    dbg "${FUNCNAME}() was called, arg: ${*}"
     cat <<EOF
 
-    $myName Copyright (C) 2013 Björn Bohman
+    ${myName} Copyright (C) 2013 Björn Bohman
 
     This program is free software: you can redistribute it and/or modify
     it under the terms of the GNU General Public License as published by
@@ -98,127 +110,155 @@ EOF
 
 # Function for word wrapping
 foldIt() {
-    input="$@"
-    maxwidth=$(($(tput cols) - 15))
-    dbg "$(eval $input)"
-    if [ -z "$debug" ] && [ -z "$quietMode" ];then
-        eval "$input" | fold -s -w $maxwidth
+# TODO: Fix foldIt() and caller to get rid of eval, and to have to do "set +u"
+    set +u
+    local input="${@}"
+    local maxwidth=$(($(tput cols) - 15))
+    dbg "$(eval ${input})"
+    if [ -z "${debug}" ] && [ -z "${quietMode}" ];then
+        eval "${input}" | fold -s -w ${maxwidth}
     fi
+    set -u
 }
 
 # Function to echo out a coloured bar between sections.
 bar() {
-    if [ -z "$quietMode" ];then
+    if [ -z "${quietMode}" ];then
         echo -e "${blue}*-----------*${end}"
     fi
-    }
+}
 
 # Function to echo out coloured stars between sections.
 stars() {
-    if [ -z "$quietMode" ];then
+    if [ -z "${quietMode}" ];then
         echo -e "${boldRed}*************${end}"
     fi
-    }
+}
 
 # Function to echo out "ok" after a check
 ok() {
-    if [ -z "$quietMode" ] || [ -n "$debug" ];then
-        $tprint; echo -e "${green}[OK]${end}"
+    if [ -z "${quietMode}" ] || [ -n "${debug}" ];then
+        ${tprint}; echo -e "${green}[OK]${end}"
     fi
-    }
+}
 
 # Function to echo out "Dryrun" after a check
 dryRun() {
-    if [ -z "$quietMode" ] || [ -n "$debug" ];then
-        $tprint; echo -e "${yellow}[Dryrun]${end}"
+    if [ -z "${quietMode}" ] || [ -n "${debug}" ];then
+        ${tprint}; echo -e "${yellow}[Dryrun]${end}"
     fi
-    }
+}
 
 # Function to echo out "failed" after a check, and exit
 failed() {
-    if [ -z "$quietMode" ] || [ -n "$debug" ];then
-        $tprint; echo -e "${warning}[FAILED]${end}"
+    if [ -z "${quietMode}" ] || [ -n "${debug}" ];then
+        ${tprint}; echo -e "${warning}[FAILED]${end}"
     fi
-    errorExit "$@"
-    }
+    errorExit "${@}"
+}
 
 # Non Critical failed.
 ncfailed() {
-    if [ -z "$quietMode" ] || [ -n "$debug" ];then
-        $tprint; echo -e "${warning}[FAILED]${end}"
+    if [ -z "${quietMode}" ] || [ -n "${debug}" ];then
+        ${tprint}; echo -e "${warning}[FAILED]${end}"
     fi
-    if [ -n "$1" ]; then
-        foldIt echo -e "INFO: $@"
+    if [ -n "${1}" ]; then
+        foldIt echo -e "INFO: ${@}"
     fi
-    }
+}
+
+# Reverse array. Take arguments in: "arrayname"
+reverseArray() {
+    # TODO: Fix reverseArray() to get rid of eval, and to have to do "set +u"
+    set +u
+    local arrayname=${1:?Array name required} array revarray e
+    eval "array=( \"\${${arrayname}[@]}\" )"
+    for e in "${array[@]}"
+    do
+        revarray=( "${e}" "${revarray[@]}" )
+    done
+    eval "${arrayname}=( \"\${revarray[@]}\" )"
+    set -u
+}
 
 # Debug function
 dbg() {
-    if [ -n "$debug" ];then
+    if [ -n "${debug}" ];then
         local frame=0
-        local functionStacktrace=""
+        local i=0
+        local functionStacktrace=()
+        local lineStacktrace=()
         local debugMessage=""
-        while caller $frame > /dev/null; do
-            functionStacktrace="${functionStacktrace}$(caller $frame | awk '{print $2}')() "
+        while caller ${frame} > /dev/null; do
+            functionStacktrace[${frame}]=$(caller ${frame} | awk '{print $2}')
+            lineStacktrace[${frame}]=$(caller ${frame} | awk '{print $1}')
             ((frame++));
         done
-        functionStacktrace=$(echo $functionStacktrace | tr ' ' '\n' |tac| tr '\n' ' ')
-        debugMessage="${functionStacktrace}DEBUG:: ${*}"
-        logger -t $0 "${debugMessage}"
-        echo "$(date +'%Y-%m-%dT%H:%M:%S') ${0} ${debugMessage}" | tee -a $debugLog
+        reverseArray "functionStacktrace"
+        reverseArray "lineStacktrace"
+        while [ ${#functionStacktrace[@]} -gt ${i} ];do
+            debugMessage="${debugMessage}${functionStacktrace[${i}]}()line ${lineStacktrace[${i}]}: "
+            ((i++))
+        done
+        debugMessage="${debugMessage}${*}"
+        logger -t ${0} "${debugMessage}"
+        echo "$(date +"${dateFormat}") ${0} ${debugMessage}" | tee -a ${debugLog}
     fi
-    }
+}
 
 # Reports to web server
 # Takes arguments in:  var0=value0 var1=value1
 report() {
-    dbg "${FUNCNAME}() was called, arg: $*"
-    if [ -n "$offline" ];then
-        dbg "\$offline is set, dont report"
+    dbg "${FUNCNAME}() was called, arg: ${*}"
+    local i=0
+    local args=${#}
+    local awn=""
+    local doReport=""
+    if [ -n "${offline}" ];then
+        dbg "\${offline} is set, dont report"
         return 0
     fi
-    if [ -n "$reportUrl" ];then
-        dbg "\$reportUrl is set, try to reporting"
-        i=0
-        args=$#
-        while [ $args -gt $i ];do
-            awn="${awn}$1&"
+    if [ -n "${reportUrl}" ];then
+        dbg "\${reportUrl} is set, try to reporting"
+        while [ ${args} -gt ${i} ];do
+            awn="${awn}${1}&"
             shift
             ((i++))
         done
-        doReport='wget "$reportUrl" -q -O /dev/null --post-data "
-date=$(date +'%Y-%m-%dT%H:%M:%S')&
-hostname=$HOSTNAME&
-user=$USER&
-get_envGitServer=$get_envGitServer&
-get_envGitUser=$get_envGitUser&
-get_envRepository=$get_envRepository&
-get_envBranch=$get_envBranch&
-gitServer=$gitServer&
-gitUser=$gitUser&
-repository=$repository&
-branch=$branch&
-quietMode=$quietMode&
-dryrun=$dryrun&
-debug=$debug&
-debugLog=$debugLog&
-noGet_envUpdate=$noGet_envUpdate&
-myName=$myName&
-localWorkDir=$localWorkDir&
-newFiles=$newFiles&
-updatedFiles=$updatedFiles
-createdDirs=$createdDirs&
+        # TODO: Refactor to not use eval
+        doReport='wget "${reportUrl}" -q -O /dev/null --post-data "
+date=$(date +${dateFormat})&
+hostname=${HOSTNAME}&
+user=${USER}&
+get_envGitServer=${get_envGitServer}&
+get_envGitUser=${get_envGitUser}&
+get_envRepository=${get_envRepository}&
+get_envBranch=${get_envBranch}&
+gitServer=${gitServer}&
+gitUser=${gitUser}&
+repository=${repository}&
+branch=${branch}&
+quietMode=${quietMode}&
+dryrun=${dryrun}&
+debug=${debug}&
+debugLog=${debugLog}&
+noGet_envUpdate=${noGet_envUpdate}&
+myName=${myName}&
+localWorkDir=${localWorkDir}&
+newFiles=${newFiles}&
+updatedFiles=${updatedFiles}
+createdDirs=${createdDirs}&
 ${awn}"'
 
         foldIt echo -n "Reporting to web server"
-        if eval $doReport; then
+        if eval ${doReport}; then
             ok
             dbg "Reported to web server"
         else
             ncfailed
         fi
     else
-        dbg "\$reportUrl is not set, don't  reporting"
+        dbg "\${reportUrl} is not set, don't  reporting"
     fi
     dbg "${FUNCNAME}() leaving function"
 }
@@ -226,10 +266,10 @@ ${awn}"'
 # Function for exit due to fatal program error
 # Takes argument as string containing error message
 errorExit() {
-    dbg "${FUNCNAME}() was called, arg: $*"
+    dbg "${FUNCNAME}() was called, arg: ${*}"
     echo -e "${warning}${myName}: ${1:-"Unknown Error"}${end}" 1>&2
     dbg  "${myName}: ${1:-"Unknown Error"}"
-    report "error=$1"
+    report "error=${1}"
     cleanup
     exit 1
     dbg "${FUNCNAME}() leaving function"
@@ -238,7 +278,7 @@ errorExit() {
 # Help menu when invoked with -h
 helpMenu() {
 cat <<EOF
-"Useage: $0 arguments"
+"Useage: ${0} arguments"
     options:
     -d   Debug - shows whats happening and saves debugLog in the form
          /tmp/${myName}.debugLog.2013-10-21T10:42:37.XXXXXXXXX
@@ -258,11 +298,11 @@ EOF
 # Function to download zip from github.
 # Arg: server user repository branch filePath
 downloadAndUnzip() {
-    dbg "${FUNCNAME}() was called, arg: $*"
-    local server=$1
-    local user=$2
-    local repository=$3
-    local branch=$4
+    dbg "${FUNCNAME}() was called, arg: ${*}"
+    local server=${1}
+    local user=${2}
+    local repository=${3}
+    local branch=${4}
     local inFile="https://${server}/${user}/${repository}/archive/${branch}.zip"
     local outDir="${downloadDir}/${repository}"
     local outFile="${repository}-${branch}.zip"
@@ -270,7 +310,7 @@ downloadAndUnzip() {
     foldIt echo -n "Downloading ${inFile}"
 
     # Download
-    if [ -z "$debug" ];then
+    if [ -z "${debug}" ];then
         if wget ${inFile} -O ${outDir}/${outFile} -q; then
             ok
             dbg "Downloaded ${outFile}"
@@ -287,7 +327,7 @@ downloadAndUnzip() {
     fi
     foldIt echo -n "Unzipping ${outFile}"
     # Unzip
-    if [ -z "$debug" ];then
+    if [ -z "${debug}" ];then
         if unzip -o -qq ${outDir}/${outFile} -d ${outDir}; then
             ok
             dbg "Unzipped file"
@@ -302,7 +342,7 @@ downloadAndUnzip() {
             failed "Failed to unzip"
         fi
     fi
-    foldIt echo -n "Moving files to $localWorkDir"
+    foldIt echo -n "Moving files to ${localWorkDir}"
     syncFiles "${outDir}/${repository}-${branch}" "${localWorkDir}/${repository}/"
     dbg "${FUNCNAME}() leaving function"
 }
@@ -310,18 +350,19 @@ downloadAndUnzip() {
 # Function to clone and pull repository from gitserver.
 # Arg: server user repository branch [ssh port (optional)]
 gitCloneAndPull() {
-    dbg "${FUNCNAME}() was called, arg: $*"
+    dbg "${FUNCNAME}() was called, arg: ${*}"
     depends git
-    local server=$1
-    local user=$2
-    repository=$(echo $3 | egrep -o '[[:alnum:]_\.]+$')
-    local branch=$4
+    local server=${1}
+    local user=${2}
+    # ${repository} cant be local, we use modified ${repository} later in script.
+    repository=$(echo ${3} | egrep -o '[[:alnum:]_\.]+$')
+    local branch=${4}
     local sshPort=${5:-"22"}
     local gitRemoteRepo="ssh://${user}@${server}:${sshPort}/${pathToRepository}/${repository}"
 
     # Git may clone both with and without trailing '.git'. Local repository will not have .git, therefore removing it from variable
-    if echo $repository | grep -q '\.git$';then
-        repository=$(echo $repository | sed 's/\.git$//')
+    if echo ${repository} | grep -q '\.git$';then
+        repository=$(echo ${repository} | sed 's/\.git$//')
     fi
 
     createDir -q -f ${localWorkDir}/git
@@ -353,9 +394,9 @@ gitCloneAndPull() {
     else
         # Local repository does not exists, trying to clone
         cd ${localWorkDir}/git/
-        dbg "URL to use for git clone:  $gitRemoteRepo"
+        dbg "URL to use for git clone:  ${gitRemoteRepo}"
         foldIt echo -n "Git clone ${repository} to ${localWorkDir}/git/ "
-        if git clone -q $gitRemoteRepo;then
+        if git clone -q ${gitRemoteRepo};then
             ok
             dbg "Clone ${repository} to ${localWorkDir}/git/${repository}"
         else
@@ -366,7 +407,7 @@ gitCloneAndPull() {
     cd ${localWorkDir}/git/${repository}
 
     # Save current branch, if not set already
-    if [ -z "$startBranch" ]; then
+    if [ -z "${startBranch}" ]; then
         local startBranch=$(git branch --no-color | grep '\*' | awk '{print $2}')
     fi
 
@@ -379,7 +420,7 @@ gitCloneAndPull() {
         failed "Could not checkout branch ${branch}"
     fi
 
-    foldIt echo -n "Moving files to $localWorkDir"
+    foldIt echo -n "Moving files to ${localWorkDir}"
     createDir -f "${localWorkDir}/${repository}/${repository}-${branch}"
     syncFiles "${localWorkDir}/git/${repository}/" "${localWorkDir}/${repository}/${repository}-${branch}"
 
@@ -392,7 +433,7 @@ gitCloneAndPull() {
         failed "Could not checkout branch ${startBranch}"
     fi
 
-    cd $myStartDirectory
+    cd ${myStartDirectory}
 
     dbg "${FUNCNAME}() leaving function"
 }
@@ -400,15 +441,16 @@ gitCloneAndPull() {
 # Files that shall be copied
 # Arg: dir_in_repo dir_to_be_moved_to _files_
 copyFiles() {
-    dbg "${FUNCNAME}() was called, arg: $*"
-    local fromDir=$1
+    dbg "${FUNCNAME}() was called, arg: ${*}"
+    local fromDir=${1}
     shift
-    local toDir=$1
+    local toDir=${1}
     shift
-    # Test if $toDir exists
-    createDir $toDir
+    local file=""
+    # Test if ${toDir} exists
+    createDir ${toDir}
 
-    for file in $*
+    for file in ${*}
     do
         # Test if the source file exists
         if [ ! -f ${localWorkDir}/${repository}/${repository}-${branch}/${fromDir}/${file} ]; then
@@ -419,12 +461,12 @@ copyFiles() {
         if [ -f "${toDir}/${file}" ]; then
             # .. diff it with the source file
             if ! diff -q  ${localWorkDir}/${repository}/${repository}-${branch}/${fromDir}/${file} ${toDir}/${file} >/dev/null 2>&1; then
-                if [ -z "$dryrun" ];then
+                if [ -z "${dryrun}" ];then
                     # .. And if it is not the same, copy to backup file:
                     # TODO: gzip backup? Number of backups? Better structure?
                     createDir "${localWorkDir}/backup"
                     foldIt echo -n "Found difference in ${toDir}/${file}, making backup"
-                    if [ $(echo $file | cut -c1) == "." ];then
+                    if [ $(echo ${file} | cut -c1) == "." ];then
                         if cp ${toDir}/${file} ${localWorkDir}/backup/dot${file}.${ddate}; then
                             ok
                             dbg "Backed up: ${localWorkDir}/backup/${file}.${ddate}"
@@ -441,8 +483,8 @@ copyFiles() {
                     fi
                 fi
                 # .. Copy the new file
-                foldIt echo -n "Copy new ${toDir}/$file"
-                if [ -n "$dryrun" ];then
+                foldIt echo -n "Copy new ${toDir}/${file}"
+                if [ -n "${dryrun}" ];then
                     dryRun
                     dryrunUpdatedFiles="${dryrunUpdatedFiles}${file} "
                 else
@@ -460,7 +502,7 @@ copyFiles() {
         # If the to_file dose not exist, just copy it.
         else
             foldIt echo -n "Copy new ${toDir}/${file}"
-            if [ -n "$dryrun" ];then
+            if [ -n "${dryrun}" ];then
                 dryRun
                 dryrunNewFiles="${dryrunNewFiles}${file} "
             else
@@ -479,7 +521,7 @@ copyFiles() {
 
 # Number of variables that is supposed to be in confFile, is used to check if new confFile will be written
 generateConfFile() {
-    dbg "${FUNCNAME}() was called, arg: $*"
+    dbg "${FUNCNAME}() was called, arg: ${*}"
     confFileContent="\
 # Where to download new get_env from (should be a github repository)
 get_envGitServer=${get_envGitServer:-"github.com"}
@@ -500,43 +542,42 @@ repository=${repository:-"dotfiles"}
 branch=${branch:-"master"}
 
 # If not using github as repository you may need to set these settings:
-# 'git clone ssh://${gitUser}@${gitServer}:${sshPort}/${pathToRepository}${repository}'
+# 'git clone ssh://gitUser@gitServer:sshPort/pathToRepository/repository'
 sshPort=${sshPort:-"22"}
 pathToRepository=${pathToRepository:-"none"}
 
 # Path to local repository
-localWorkDir=$localWorkDir
+localWorkDir=${localWorkDir}
 
 # If set, report status to this address. (Uses report.php from github.com/spetzreborn/get_env)
 #reportUrl=""
 "
 
     # TODO: Just grep on variables? Set and unset, eg reportUrl can be both.
-    confFileVariables=$(echo "$confFileContent" | egrep -c '^[^#]')
+    confFileVariables=$(echo "${confFileContent}" | egrep -c '^[^#]')
     dbg "${FUNCNAME}() leaving function"
 }
 
-# Change the values in $confFile
+# Change the values in ${confFile}
 # Arg: variable value
 changeConfFile() {
-    dbg "${FUNCNAME}() was called, arg: $*"
-    sed -i "s/\($1 *= *\).*/\1$2/" $confFile
+    dbg "${FUNCNAME}() was called, arg: ${*}"
+    sed -i "s/\(${1} *= *\).*/\1${2}/" ${confFile}
     dbg "${FUNCNAME}() leaving function"
 }
 
-
 writeConfFile() {
-    dbg "${FUNCNAME}() was called, arg: $*"
+    dbg "${FUNCNAME}() was called, arg: ${*}"
     # First time run - print GNU information
     gnuLicense
-    local fileToWrite="$1"
+    local fileToWrite="${1}"
     bar
-    foldIt echo -n "Saving default configuration in $fileToWrite"
-    if echo "$confFileContent" > $fileToWrite;then
+    foldIt echo -n "Saving default configuration in ${fileToWrite}"
+    if echo "${confFileContent}" > ${fileToWrite};then
         ok
-        dbg "Wrote config to $fileToWrite"
+        dbg "Wrote config to ${fileToWrite}"
     else
-        failed "Could not write $fileToWrite"
+        failed "Could not write ${fileToWrite}"
     fi
     dbg "${FUNCNAME}() leaving function"
 }
@@ -546,11 +587,12 @@ writeConfFile() {
 # -q = quiet, dont show
 # -f = force, create directory even if "dryrun" is invoked.
 createDir() {
-    dbg "${FUNCNAME}() was called, arg: $*"
+    dbg "${FUNCNAME}() was called, arg: ${*}"
     local quiet=""
     local force=""
-    while [ $# -gt 1 ]; do
-        case "$1" in
+    local dir=""
+    while [ ${#} -gt 1 ]; do
+        case "${1}" in
             -q)
                 dbg "Set quiet for createDir()"
                 quiet="yes"
@@ -563,31 +605,31 @@ createDir() {
         esac
     done
 
-    for dir in $*;do
-        dbg "Test if $dir exists"
-        if [ ! -d "$dir" ];then
-            if [ -z "$quiet" ];then
-                foldIt echo -n "Creating directory $dir"
+    for dir in ${*};do
+        dbg "Test if ${dir} exists"
+        if [ ! -d "${dir}" ];then
+            if [ -z "${quiet}" ];then
+                foldIt echo -n "Creating directory ${dir}"
             fi
-            if [ -n "$dryrun" ] && [ -z "$force" ];then
-                dbg "\$dryrun set, dont create directory"
-                if [ -z "$quiet" ];then
+            if [ -n "${dryrun}" ] && [ -z "${force}" ];then
+                dbg "\${dryrun} set, dont create directory"
+                if [ -z "${quiet}" ];then
                     dryRun
                 fi
                 dryrunCreatedDirs="${dryrunCreatedDirs}${dir} "
             else
-                    if mkdir -p $dir;then
-                        dbg "Created $dir"
-                        if [ -z "$quiet" ];then
+                    if mkdir -p ${dir};then
+                        dbg "Created ${dir}"
+                        if [ -z "${quiet}" ];then
                             ok
                         fi
-                        createdDirs="${createdDirs}$dir "
+                        createdDirs="${createdDirs}${dir} "
                     else
-                        failed "Failed to create $dir"
+                        failed "Failed to create ${dir}"
                     fi
             fi
         else
-            dbg "Dir $dir already exists"
+            dbg "Dir ${dir} already exists"
         fi
     done
     dbg "${FUNCNAME}() leaving function"
@@ -595,50 +637,60 @@ createDir() {
 
 # Echo variables to debug
 showVariables() {
+    dbg "${FUNCNAME}() was called, arg: ${*}"
     dbg "Variables I have: "
-    dbg "\$myName: $myName"
-    dbg "\$gituser: $gituser"
-    dbg "\$gitserver: $gitserver"
-    dbg "\$localWorkDir: $localWorkDir"
-    dbg "\$get_envGitServer: $get_envGitServer"
-    dbg "\$get_envGitUser: $get_envGitUser"
-    dbg "\$get_envRepository: $get_envRepository"
-    dbg "\$get_envBranch: $get_envBranch"
-    dbg "\$gitServer: $gitServer"
-    dbg "\$gitUser: $gitUser"
-    dbg "\$repository: $repository"
-    dbg "\$branch: $branch"
-    # Call dbg() for all values in array $files2copy
-    i=0
+    dbg "\${myName}: ${myName}"
+    dbg "\${gituser}: ${gituser:-""}"
+    dbg "\${gitserver}: ${gitserver:-""}"
+    dbg "\${localWorkDir}: ${localWorkDir:-""}"
+    dbg "\${get_envGitServer}: ${get_envGitServer:-""}"
+    dbg "\${get_envGitUser}: ${get_envGitUser:-""}"
+    dbg "\${get_envRepository}: ${get_envRepository:-""}"
+    dbg "\${get_envBranch}: ${get_envBranch:-""}"
+    dbg "\${gitServer}: ${gitServer:-""}"
+    dbg "\${gitUser}: ${gitUser:-""}"
+    dbg "\${repository}: ${repository:-""}"
+    dbg "\${branch}: ${branch:-""}"
+    dbg "\${debug}:${debug:-""}"
+    dbg "\${debugLog}: ${debugLog:-""}"
+    dbg "\${noGet_envUpdate}: ${noGet_envUpdate:-""}"
+    dbg "\${quietMode}: ${quietMode:-""}"
+    dbg "\${dryrun}:${dryrun:-""}"
+    dbg "\${offline}:${offline:-""}"
+    dbg "${FUNCNAME}() leaving function"
+}
+
+showVariablesHostConfig() {
+    dbg "${FUNCNAME}() was called, arg: ${*}"
+    dbg "Variables for ${1}:"
+    dbg "\${dirsToCreate}: ${dirsToCreate}"
+    # Call dbg() for all values in array ${files2copy}
+    local i=0
+    local array=""
     for array in "${files2copy[@]}";do
-        dbg "\$files2copy[$i]: $array"
+        dbg "\${files2copy[${i}]}: ${array}"
         ((i++))
     done
-    dbg "\$debug:$debug"
-    dbg "\$debugLog: $debugLog"
-    dbg "\$noGet_envUpdate: $noGet_envUpdate"
-    dbg "\$quietMode: $quietMode"
-    dbg "\$dryrun:$dryrun"
-    dbg "\$offline:$offline"
+    dbg "${FUNCNAME}() leaving function"
 }
 
 # Check that configuration files only have valid configurations.
 # Arg: config-filetype [get_env|manifest] file
 validateConfig() {
-    dbg "${FUNCNAME}() was called, arg: $*"
-    local confType=$1
-    local confFile=$2
+    dbg "${FUNCNAME}() was called, arg: ${*}"
+    local confType=${1}
+    local confFile=${2}
     local badContent=""
     local validateString=""
-    dbg "confType = $confType"
-    case "$confType" in
+    dbg "confType = ${confType}"
+    case "${confType}" in
         "get_env")
                 # TODO: Only accepted variables that we want?
                 dbg "Validate type: get_env"
                 badContent=$(egrep -v \
                 -e "^([A-Za-z_]+=[A-Za-z0-9/_~. ]+)?$" \
                 -e "^#" \
-                $confFile)
+                ${confFile})
             ;;
         "manifest")
                 dbg "Validate type: manifest"
@@ -646,14 +698,14 @@ validateConfig() {
                 -e "^#" \
                 -e "dirsToCreate=" \
                 -e "^files2copy[[][0-9]+[]]='?\"?[A-Za-z0-9/_~. $]+'?\"?" \
-                $confFile)
+                ${confFile})
             ;;
     esac
-    if [ -n "$badContent" ]; then
-        dbg "$confFile is not sanitized: $badContent"
-        errorExit "$confFile contains bad things: $badContent"
+    if [ -n "${badContent}" ]; then
+        dbg "${confFile} is not sanitized: ${badContent}"
+        errorExit "${confFile} contains bad things: ${badContent}"
     else
-        dbg "$confFile is sanitized, no bad content"
+        dbg "${confFile} is sanitized, no bad content"
     fi
     dbg "${FUNCNAME}() leaving function"
 }
@@ -662,13 +714,13 @@ validateConfig() {
 # Need absolute name in from file, so it truly can make variable name.
 # This diff dose not care about comments.
 get_envDiffAndRestart() {
-    dbg "${FUNCNAME}() was called, arg: $*"
-    get_envDownloaded="${localWorkDir}/${get_envRepository}/${get_envRepository}-${get_envBranch}/${myAbsoluteName}"
-    if ! diff -q -I '^# .*'  ~/$myName ${get_envDownloaded} >/dev/null 2>&1; then
-        foldIt echo -e '${INFO}Found newer     $myName ${END}'
-        if [ -n "$noGet_envUpdate" ] || [ -n "$dryrun" ]; then
-            dbg "$noGet_envUpdate $dryrun is set, dont replace or run newer"
-            foldIt echo "Do not run newer ${myName}, $noGet_envUpdate $dryrun is invoked."
+    dbg "${FUNCNAME}() was called, arg: ${*}"
+    local get_envDownloaded="${localWorkDir}/${get_envRepository}/${get_envRepository}-${get_envBranch}/${myAbsoluteName}"
+    if ! diff -q -I '^# .*'  ~/${myName} ${get_envDownloaded} >/dev/null 2>&1; then
+        foldIt echo -e '${INFO}Found newer     ${myName} ${END}'
+        if [ -n "${noGet_envUpdate}" ] || [ -n "${dryrun}" ]; then
+            dbg "${noGet_envUpdate} ${dryrun} is set, dont replace or run newer"
+            foldIt echo "Do not run newer ${myName}, ${noGet_envUpdate} ${dryrun} is invoked."
         else
             foldIt echo -en "Replacing       $(echo ~)/${myName}"
             if cp ${get_envDownloaded} ~/${myName}; then
@@ -685,16 +737,16 @@ get_envDiffAndRestart() {
             foldIt echo ""
             foldIt echo ""
         # Makes next script start with debug if this instance was started with debug.
-            if [ -n "$debug" ];then
+            if [ -n "${debug}" ];then
                 cleanup
-                exec ~/${myName} -r "$localWorkDir" "$quietMode" "$noGet_envUpdate" "$debug" -l "$debugLog"
+                exec ~/${myName} -r "${localWorkDir}" "${quietMode}" "${noGet_envUpdate}" "${debug}" -l "${debugLog}"
             else
                 cleanup
-                exec ~/${myName} -r "$localWorkDir" "$quietMode" "$noGet_envUpdate"
+                exec ~/${myName} -r "${localWorkDir}" "${quietMode}" "${noGet_envUpdate}"
             fi
         fi
     else
-        foldIt echo "Already running latest $myName"
+        foldIt echo "Already running latest ${myName}"
     fi
     dbg "${FUNCNAME}() leaving function"
 }
@@ -702,23 +754,23 @@ get_envDiffAndRestart() {
 # Wrapper function for syncing files.
 # Arg: sourceDir destDir
 syncFiles() {
-    dbg "${FUNCNAME}() was called, arg: $*"
-    local sourceDir=$1
-    local destDir=$2
-    if [ ! -e "$sourceDir" ];then
-        errorExit "$sourceDir does not exists."
+    dbg "${FUNCNAME}() was called, arg: ${*}"
+    local sourceDir=${1}
+    local destDir=${2}
+    if [ ! -e "${sourceDir}" ];then
+        errorExit "${sourceDir} does not exists."
     fi
-    if [ -z "$debug" ];then
-        if  rsync -aq --delete $sourceDir $destDir; then
+    if [ -z "${debug}" ];then
+        if  rsync -aq --delete ${sourceDir} ${destDir}; then
             ok
-            dbg "rsync to $destDir"
+            dbg "rsync to ${destDir}"
         else
             failed "Failed to rsync"
         fi
     else
-        if  rsync -av --delete $sourceDir $destDir; then
+        if  rsync -av --delete ${sourceDir} ${destDir}; then
             ok
-            dbg "rsync to $destDir"
+            dbg "rsync to ${destDir}"
         else
             failed "Failed to sync"
         fi
@@ -729,7 +781,7 @@ syncFiles() {
 # TODO: Call cleanup() by trap? trap cleanup EXIT
 cleanup() {
 # Remove downloaded files and temporary directories
-    dbg "${FUNCNAME}() was called, arg: $*"
+    dbg "${FUNCNAME}() was called, arg: ${*}"
     if [ -d ${downloadDir} ]; then
         rm -r ${downloadDir}
     fi
@@ -738,18 +790,17 @@ cleanup() {
 
 ### End of functions
 
-
 # Make tput work in screen
-if [ "$TERM" = "screen" ];then
+if [ "${TERM}" = "screen" ];then
     TERM=xterm
-    dbg "\$TERM was screen, setting it to xterm for running in this script"
+    dbg "\${TERM} was screen, setting it to xterm for running in this script"
 fi
 
 while getopts ":dfhl:nqr:u" opt; do
-    case $opt in
+    case ${opt} in
         d)
         debug="-d"
-        echo "Debug is set, saving debugLog to: $debugLog"
+        echo "Debug is set, saving debugLog to: ${debugLog}"
         ;;
         f)
         offline="true"
@@ -758,7 +809,7 @@ while getopts ":dfhl:nqr:u" opt; do
         helpMenu
         ;;
         l)
-        debugLog=$(readlink -f $OPTARG)
+        debugLog=$(readlink -f ${OPTARG})
         ;;
         n)
         dryrun="-n"
@@ -767,28 +818,28 @@ while getopts ":dfhl:nqr:u" opt; do
         quietMode="-q"
         ;;
         r)
-        localWorkDir=$(readlink -f $OPTARG)
+        localWorkDir=$(readlink -f ${OPTARG})
         ;;
         u)
         noGet_envUpdate="-u"
         ;;
         \?)
-        errorExit "Invalid option: -$OPTARG"
+        errorExit "Invalid option: -${OPTARG}"
         ;;
         :)
-        errorExit "Option -$OPTARG requires an argument."
+        errorExit "Option -${OPTARG} requires an argument."
         ;;
     esac
 done
 
 # Only create a debugLog if there is not one.
-if [ -n "$debug" ];then
-    if [ -z "$debugLog" ];then
+if [ -n "${debug}" ];then
+    if [ -z "${debugLog}" ];then
         debugLog=$(mktemp /tmp/${myName}.debugLog.${ddate}.XXXXXXXXX)
     fi
 fi
 
-dbg "I have started, read variables and functions and are on line:$LINENO"
+dbg "I have started, read variables and functions and are on line:${LINENO}"
 showVariables
 
 # Verify write permissions in home directory
@@ -796,23 +847,22 @@ if [ ! -w ~ ];then
     errorExit "Have no write permissions in $(echo ~)"
 fi
 
-
-# If argument -r was not given, set default $localWorkDir to absolute path
-if [ -z "$localWorkDir" ]; then
+# If argument -r was not given, set default ${localWorkDir} to absolute path
+if [ -z "${localWorkDir:-""}" ]; then
     localWorkDir="$(echo ~/.${myName})"
-    dbg 'Setting defult $localWorkDir to absolute path: ' "$localWorkDir"
+    dbg 'Setting defult ${localWorkDir} to absolute path: ' "${localWorkDir}"
 fi
 
-# generateConfFile() must be run before attempting to compare confFiles, but after $localWorkDir is set.
+# generateConfFile() must be run before attempting to compare confFiles, but after ${localWorkDir} is set.
 generateConfFile
 # Checks if confFile exists and have read and write permissions.
-if [ -f "$confFile" ];then
-    if [ ! -w "$confFile" ] || [ ! -r "$confFile" ];then
-        errorExit "No read or write permissions for $confFile"
+if [ -f "${confFile}" ];then
+    if [ ! -w "${confFile}" ] || [ ! -r "${confFile}" ];then
+        errorExit "No read or write permissions for ${confFile}"
     fi
 
 # Sanitize confFile so that only sane line exists.
-    validateConfig "get_env" "$confFile"
+    validateConfig "get_env" "${confFile}"
 
 # Matches variables in default confFile and confFile. Only counts VARIABLE_NAME=variable. Variables must be set
 #TODO: Dont invert check, just make regex for variables.
@@ -820,71 +870,71 @@ if [ -f "$confFile" ];then
     -e "^#" \
     -e "^$" \
     -e "^files2copy[[][0-9]+[]]='?\"?[A-Za-z0-9/_~. $]+'?\"?" \
-    $confFile)
-    if [ "$numberOfVariablesInConfFile" -eq "$confFileVariables" ]; then
+    ${confFile})
+    if [ "${numberOfVariablesInConfFile}" -eq "${confFileVariables}" ]; then
         dbg "confFile contains correct number of variables."
     else
-        dbg "Wrong number of variable in $confFile, $numberOfVariablesInConfFile vs $confFileVariables"
+        dbg "Wrong number of variable in ${confFile}, ${numberOfVariablesInConfFile} vs ${confFileVariables}"
         dbg "Create new conffile"
 # Create new confFile
         writeConfFile ${confFile}.new
-        errorExit "Created ${confFile}.new, before running $myName again, edit and move this file to $confFile"
+        errorExit "Created ${confFile}.new, before running ${myName} again, edit and move this file to ${confFile}"
     fi
 else
-    dbg "\$confFile ($confFile) does not exist, creating."
-    writeConfFile $confFile
-    errorExit "Created $confFile, before running $myName again, edit $confFile"
+    dbg "\${confFile} (${confFile}) does not exist, creating."
+    writeConfFile ${confFile}
+    errorExit "Created ${confFile}, before running ${myName} again, edit ${confFile}"
 fi
 
 # Source confFile.
-foldIt echo -n "Loading configuration in $confFile"
-if . $confFile;then
+foldIt echo -n "Loading configuration in ${confFile}"
+if . ${confFile};then
     ok
-    dbg "Sourced confFile: $confFile"
+    dbg "Sourced confFile: ${confFile}"
 else
-    failed "Could not source confFile: $confFile"
+    failed "Could not source confFile: ${confFile}"
 fi
 showVariables
 
 # Some verbose things
-foldIt echo "Using $localWorkDir as repo."
-foldIt echo "Using branch: $branch "
+foldIt echo "Using ${localWorkDir} as repo."
+foldIt echo "Using branch: ${branch} "
 
 # Check for internet connection
-if [ -n "$offline" ];then
-    dbg "\$offline is set \"$offline\", dont check inetconn"
+if [ -n "${offline}" ];then
+    dbg "\${offline} is set \"${offline}\", dont check inetconn"
 else
     dbg "Checking for internet connection . . ."
-    inetCon=$(host "$get_envGitServer")
-    inetErr=$?
-    dbg "Checked internet connection by 'host $get_envGitServer' answer:${inetCon}"
-    if [ "$inetErr" != "0" ];then
+    inetCon=$(host "${get_envGitServer}")
+    inetErr=${?}
+    dbg "Checked internet connection by 'host ${get_envGitServer}' answer:${inetCon}"
+    if [ "${inetErr}" != "0" ];then
         offline="Dont try to report, no connection"
         errorExit "No internet connection or none functional dns. Exiting"
     fi
 fi
 
-# Create $localWorkDir directory
-createDir -f $localWorkDir
+# Create ${localWorkDir} directory
+createDir -f ${localWorkDir}
 
 # Download latest get_env and repository as zip from github
-if [ -z "$offline" ];then
+if [ -z "${offline}" ];then
     bar
-    downloadAndUnzip $get_envGitServer $get_envGitUser $get_envRepository $get_envBranch
+    downloadAndUnzip ${get_envGitServer} ${get_envGitUser} ${get_envRepository} ${get_envBranch}
 fi
 # Check if downloaded get_env is newer, then replace and restart
-if [ -z "$offline" ];then
+if [ -z "${offline}" ];then
     bar
     get_envDiffAndRestart
 fi
 # Download repository with files
 # TODO: Be able to use both github and gitrepository?. Then download both.
-if [ -z "$offline" ];then
+if [ -z "${offline}" ];then
     bar
-    if [ "$gitServer" = "github.com" ];then
-        downloadAndUnzip $gitServer $gitUser $repository $branch
+    if [ "${gitServer}" = "github.com" ];then
+        downloadAndUnzip ${gitServer} ${gitUser} ${repository} ${branch}
     else
-        gitCloneAndPull $gitServer $gitUser $repository $branch $sshPort
+        gitCloneAndPull ${gitServer} ${gitUser} ${repository} ${branch} ${sshPort}
     fi
 # TODO: When offline, check out correct branch.
 
@@ -892,22 +942,23 @@ fi
 
 # Configuration for all hosts.
 allHostConf="${localWorkDir}/${repository}/${repository}-${branch}/manifest"
-if [ -f "$allHostConf" ];then
+if [ -f "${allHostConf}" ];then
     foldIt echo "Found configuration for ${repository}"
-    validateConfig "manifest" "$allHostConf"
+    validateConfig "manifest" "${allHostConf}"
     # Source configuration for all hosts and run actions.
     . "${allHostConf}"
-    for dir in $dirsToCreate;do
-        createDir $dir
+    showVariablesHostConfig "allHostConf"
+    for dir in ${dirsToCreate};do
+        createDir ${dir}
     done
     for array in "${files2copy[@]}";do
-        copyFiles $array
+        copyFiles ${array}
     done
 else
-    errorExit "Cant find 'manifest': $allHostConf"
+    errorExit "Cant find 'manifest': ${allHostConf}"
 fi
 
-# Empty $files2copy and $dirsToCreate before specific host configuration.
+# Empty ${files2copy} and ${dirsToCreate} before specific host configuration.
 files2copy=()
 dirsToCreate=""
 
@@ -915,25 +966,26 @@ dirsToCreate=""
 hostConf="${localWorkDir}/${repository}/${repository}-${branch}/HOSTS/${HOSTNAME}/manifest"
 if [ -f "${hostConf}" ];then
     foldIt echo "Found host specific configuration"
-    validateConfig "manifest" "$hostConf"
+    validateConfig "manifest" "${hostConf}"
 
     # Source host specific conf and run actions.
     . "${hostConf}"
-    for dir in $dirsToCreate;do
-        createDir $dir
+    showVariablesHostConfig "specific HostConf"
+    for dir in ${dirsToCreate};do
+        createDir ${dir}
     done
     for array in "${files2copy[@]}";do
-        copyFiles $array
+        copyFiles ${array}
     done
 fi
 
 # Send to debug which files where new or updated
-dbg "\$newFiles: $newFiles"
-dbg "\$updatedFiles: $updatedFiles"
+dbg "\${newFiles}: ${newFiles}"
+dbg "\${updatedFiles}: ${updatedFiles}"
 
 # Special things for new or updated files:
-for file in $newFiles $updatedFiles; do
-    case $file in
+for file in ${newFiles} ${updatedFiles}; do
+    case ${file} in
          .bashrc)
 # There was a change in .bashrc and need to source.
             echo ""
@@ -946,7 +998,7 @@ for file in $newFiles $updatedFiles; do
             ;;
         .bashrc.*)
 # There was a change in one of .bashrc.{files} and need to source .bashrc
-            if [ -z "$promptSourceConfigFile" ]; then
+            if [ -z "${promptSourceConfigFile}" ]; then
                 foldIt echo ""
                 foldIt echo -e '${INFO}Noticed change in $(echo ~)/${file}${END}'
                 foldIt echo ""
@@ -960,35 +1012,35 @@ for file in $newFiles $updatedFiles; do
 done
 
 # # Special things for new files:
-# for file in $newFiles; do
-#    case $file in
+# for file in ${newFiles}; do
+#    case ${file} in
 #    )
 #    ;;
 #    esac
 # done
 #
 # # Special things for updated files:
-# for file in $updatedFiles; do
-#    case $file in
+# for file in ${updatedFiles}; do
+#    case ${file} in
 #    )
 #    ;;
 #    esac
 # done
 
-if [ -z "$newFiles" ] && [ -z "$updatedFiles" ] && [ -z "$dryrun" ];then
+if [ -z "${newFiles}" ] && [ -z "${updatedFiles}" ] && [ -z "${dryrun}" ];then
     foldIt echo "No new or changed files."
 fi
 
-if [ -n "$dryrun" ];then
-    if [ -z "$dryrunNewFiles" ] && [ -z "$dryrunUpdatedFiles" ];then
+if [ -n "${dryrun}" ];then
+    if [ -z "${dryrunNewFiles}" ] && [ -z "${dryrunUpdatedFiles}" ];then
         foldIt echo "No files should been updated."
     else
-        foldIt echo "These files should have been changed: $dryrunNewFiles $dryrunUpdatedFiles"
+        foldIt echo "These files should have been changed: ${dryrunNewFiles} ${dryrunUpdatedFiles}"
     fi
-    if [ -z "$dryrunCreatedDirs" ];then
+    if [ -z "${dryrunCreatedDirs}" ];then
         foldIt echo "No new directories would have been created"
     else
-        foldIt echo "These new directories would have been created: $dryrunCreatedDirs"
+        foldIt echo "These new directories would have been created: ${dryrunCreatedDirs}"
     fi
 fi
 
@@ -999,7 +1051,7 @@ report
 cleanup
 
 # End
-dbg "End of script, debugLog saved in $debugLog"
-if [ -z "$dryrun" ];then
+dbg "End of script, debugLog saved in ${debugLog}"
+if [ -z "${dryrun}" ];then
     foldIt echo -e '${INFO}The environment is now up to date.${END}'
 fi
