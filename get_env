@@ -710,6 +710,7 @@ validateConfig() {
                 -e "^$" \
                 -e "dirsToCreate=" \
                 -e "^files2copy[[][0-9]+[]]='?\"?[A-Za-z0-9/_~. $]+'?\"?" \
+                -e "ignoreHosts=" \
                 ${confFile})
             ;;
     esac
@@ -960,12 +961,18 @@ if [ -f "${allHostConf}" ];then
     # Source configuration for all hosts and run actions.
     . "${allHostConf}"
     showVariablesHostConfig "allHostConf"
-    for dir in ${dirsToCreate};do
-        createDir ${dir}
-    done
-    for array in "${files2copy[@]}";do
-        copyFiles ${array}
-    done
+    ignoreAllHostConf=$(echo ${ignoreHosts:-""}| grep ${HOSTNAME})
+    if [ -z "${ignoreAllHostConf}" ];then
+        dbg "${HOSTNAME} not in manifest ignorelist."
+        for dir in ${dirsToCreate};do
+            createDir ${dir}
+        done
+        for array in "${files2copy[@]}";do
+            copyFiles ${array}
+        done
+    else
+        dbg "${HOSTNAME} in manifest ignorelist. Dont run manifest"
+    fi
 else
     errorExit "Cant find 'manifest': ${allHostConf}"
 fi
