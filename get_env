@@ -112,11 +112,39 @@ EOF
 foldIt() {
 # TODO: Fix foldIt() and caller to get rid of eval, and to have to do "set +u"
     set +u
-    local input="${@}"
     local maxwidth=$(($(tput cols) - 15))
-    dbg "$(eval ${input})"
+    local extended=""
+    local noNewline=""
+    while [ ${#} -gt 1 ]; do
+        case "${1}" in
+            -e)
+                dbg "Set extended for foldIt()"
+                extended="yes"
+                shift
+            ;;
+            -n)
+                dbg "Set noNewline for foldIt()"
+                noNewline="yes"
+                shift
+        esac
+    done
+    local input="${1}"
     if [ -z "${debug}" ] && [ -z "${quietMode}" ];then
-        eval "${input}" | fold -s -w ${maxwidth}
+        if [ -z "${extended}" ] && [ -z ${noNewline} ];then
+            echo "${input}" | fold -s -w ${maxwidth}
+            dbg "$(echo ${input})"
+        elif [ -n "${extended}" ] && [ -z ${noNewline} ]; then
+            echo -e "${input}" | fold -s -w ${maxwidth}
+            dbg "$(echo -e ${input})"
+        elif [ -z "${extended}" ] && [ -n ${noNewline} ]; then
+            echo -n "${input}" | fold -s -w ${maxwidth}
+            dbg "$(echo -n ${input})"
+        elif [ -n "${extended}" ] && [ -n ${noNewline} ]; then
+            echo -en "${input}" | fold -s -w ${maxwidth}
+            dbg "$(echo -en ${input})"
+        else
+            errorExit "Cant echo message: ${1}"
+        fi
     fi
     set -u
 }
