@@ -109,16 +109,61 @@ EOF
 }
 
 # Function for word wrapping
+# Arg: Optional [-e|-n] "Message"
+# -e = extended. "ecoh -e" Needed to show colors.
+# -n = no newline. "echo -n"
 foldIt() {
-# TODO: Fix foldIt() and caller to get rid of eval, and to have to do "set +u"
-    set +u
-    local input="${@}"
+    dbg "${FUNCNAME}() was called, arg: ${*}"
     local maxwidth=$(($(tput cols) - 15))
-    dbg "$(eval ${input})"
-    if [ -z "${debug}" ] && [ -z "${quietMode}" ];then
-        eval "${input}" | fold -s -w ${maxwidth}
+    local extended=""
+    local noNewline=""
+    while [ ${#} -gt 1 ]; do
+        case "${1}" in
+            -e)
+                dbg "Set extended for foldIt()"
+                extended="yes"
+                shift
+            ;;
+            -n)
+                dbg "Set noNewline for foldIt()"
+                noNewline="yes"
+                shift
+            ;;
+            -en)
+                dbg "Set extended and noNewline for foldIt()"
+                extended="yes"
+                noNewline="yes"
+                shift
+            ;;
+            -ne)
+                dbg "Set extended and noNewline for foldIt()"
+                extended="yes"
+                noNewline="yes"
+                shift
+            ;;
+            echo)
+                shift
+        esac
+    done
+    local input="${1}"
+    if [ -z "${quietMode}" ];then
+        if [ -z "${extended}" ] && [ -z ${noNewline} ];then
+            echo "${input}" | fold -s -w ${maxwidth}
+            dbg "$(echo ${input})"
+        elif [ -n "${extended}" ] && [ -z ${noNewline} ]; then
+            echo -e "${input}" | fold -s -w ${maxwidth}
+            dbg "$(echo -e ${input})"
+        elif [ -z "${extended}" ] && [ -n ${noNewline} ]; then
+            echo -n "${input}" | fold -s -w ${maxwidth}
+            dbg "$(echo -n ${input})"
+        elif [ -n "${extended}" ] && [ -n ${noNewline} ]; then
+            echo -en "${input}" | fold -s -w ${maxwidth}
+            dbg "$(echo -en ${input})"
+        else
+            errorExit "Cant echo message: ${1}"
+        fi
     fi
-    set -u
+    dbg "${FUNCNAME}() leaving function"
 }
 
 # Function to echo out a coloured bar between sections.
@@ -163,7 +208,7 @@ ncfailed() {
         ${tprint}; echo -e "${warning}[FAILED]${end}"
     fi
     if [ -n "${1}" ]; then
-        foldIt echo -e "INFO: ${@}"
+        foldIt "-e" "INFO: ${@}"
     fi
 }
 
@@ -250,7 +295,7 @@ updatedFiles=${updatedFiles}
 createdDirs=${createdDirs}&
 ${awn}"'
 
-        foldIt echo -n "Reporting to web server"
+        foldIt "-n" "Reporting to web server"
         if eval ${doReport}; then
             ok
             dbg "Reported to web server"
@@ -307,7 +352,7 @@ downloadAndUnzip() {
     local outDir="${downloadDir}/${repository}"
     local outFile="${repository}-${branch}.zip"
     createDir -f -q ${downloadDir}/${repository}
-    foldIt echo -n "Downloading ${inFile}"
+    foldIt "-n" "Downloading ${inFile}"
 
     # Download
     if [ -z "${debug}" ];then
@@ -325,7 +370,7 @@ downloadAndUnzip() {
             failed "Could not download zipfile"
         fi
     fi
-    foldIt echo -n "Unzipping ${outFile}"
+    foldIt "-n" "Unzipping ${outFile}"
     # Unzip
     if [ -z "${debug}" ];then
         if unzip -o -qq ${outDir}/${outFile} -d ${outDir}; then
@@ -342,7 +387,7 @@ downloadAndUnzip() {
             failed "Failed to unzip"
         fi
     fi
-    foldIt echo -n "Moving files to ${localWorkDir}"
+    foldIt "-n" "Moving files to ${localWorkDir}"
     syncFiles "${outDir}/${repository}-${branch}" "${localWorkDir}/${repository}/"
     dbg "${FUNCNAME}() leaving function"
 }
@@ -383,7 +428,7 @@ gitCloneAndPull() {
 
         # Save current branch
         local startBranch=$(git branch --no-color | grep '\*' | awk '{print $2}')
-        foldIt echo -n "Git pull ${repository} to ${localWorkDir}/git/ "
+        foldIt "-n" "Git pull ${repository} to ${localWorkDir}/git/ "
         if git pull -q ;then
             ok
             dbg "Git pulled ${repository} to ${localWorkDir}/git/${repository}"
@@ -395,7 +440,7 @@ gitCloneAndPull() {
         # Local repository does not exists, trying to clone
         cd ${localWorkDir}/git/
         dbg "URL to use for git clone:  ${gitRemoteRepo}"
-        foldIt echo -n "Git clone ${repository} to ${localWorkDir}/git/ "
+        foldIt "-n" "Git clone ${repository} to ${localWorkDir}/git/ "
         if git clone -q ${gitRemoteRepo};then
             ok
             dbg "Clone ${repository} to ${localWorkDir}/git/${repository}"
@@ -412,7 +457,7 @@ gitCloneAndPull() {
     fi
 
     # Checkout correct branch
-    foldIt echo -n "Checkout branch ${branch}"
+    foldIt "-n" "Checkout branch ${branch}"
     if git checkout ${branch} -q;then
         ok
         dbg "Checked out branch ${branch}"
@@ -420,12 +465,12 @@ gitCloneAndPull() {
         failed "Could not checkout branch ${branch}"
     fi
 
-    foldIt echo -n "Moving files to ${localWorkDir}"
+    foldIt "-n" "Moving files to ${localWorkDir}"
     createDir -f "${localWorkDir}/${repository}/${repository}-${branch}"
     syncFiles "${localWorkDir}/git/${repository}/" "${localWorkDir}/${repository}/${repository}-${branch}"
 
     # Restore staring branch
-    foldIt echo -n "Restoring original branch ${startBranch}"
+    foldIt "-n" "Restoring original branch ${startBranch}"
     if git checkout ${startBranch} -q;then
         ok
         dbg "Checked out branch ${startBranch}"
@@ -454,7 +499,7 @@ copyFiles() {
     do
         # Test if the source file exists
         if [ ! -f ${localWorkDir}/${repository}/${repository}-${branch}/${fromDir}/${file} ]; then
-            foldIt echo -n "Checking for file ${file}"
+            foldIt "-n" "Checking for file ${file}"
             failed "File does not exists: ${localWorkDir}/${repository}/${repository}-${branch}/${fromDir}/${file}"
         fi
         # If the destination file exist ...
@@ -465,7 +510,7 @@ copyFiles() {
                     # .. And if it is not the same, copy to backup file:
                     # TODO: gzip backup? Number of backups? Better structure?
                     createDir "${localWorkDir}/backup"
-                    foldIt echo -n "Found difference in ${toDir}/${file}, making backup"
+                    foldIt "-n" "Found difference in ${toDir}/${file}, making backup"
                     if [ $(echo ${file} | cut -c1) == "." ];then
                         if cp ${toDir}/${file} ${localWorkDir}/backup/dot${file}.${ddate}; then
                             ok
@@ -483,7 +528,7 @@ copyFiles() {
                     fi
                 fi
                 # .. Copy the new file
-                foldIt echo -n "Copy new ${toDir}/${file}"
+                foldIt "-n" "Copy new ${toDir}/${file}"
                 if [ -n "${dryrun}" ];then
                     dryRun
                     dryrunUpdatedFiles="${dryrunUpdatedFiles}${file} "
@@ -501,7 +546,7 @@ copyFiles() {
             fi
         # If the to_file dose not exist, just copy it.
         else
-            foldIt echo -n "Copy new ${toDir}/${file}"
+            foldIt "-n" "Copy new ${toDir}/${file}"
             if [ -n "${dryrun}" ];then
                 dryRun
                 dryrunNewFiles="${dryrunNewFiles}${file} "
@@ -572,7 +617,7 @@ writeConfFile() {
     gnuLicense
     local fileToWrite="${1}"
     bar
-    foldIt echo -n "Saving default configuration in ${fileToWrite}"
+    foldIt "-n" "Saving default configuration in ${fileToWrite}"
     if echo "${confFileContent}" > ${fileToWrite};then
         ok
         dbg "Wrote config to ${fileToWrite}"
@@ -609,7 +654,7 @@ createDir() {
         dbg "Test if ${dir} exists"
         if [ ! -d "${dir}" ];then
             if [ -z "${quiet}" ];then
-                foldIt echo -n "Creating directory ${dir}"
+                foldIt "-n" "Creating directory ${dir}"
             fi
             if [ -n "${dryrun}" ] && [ -z "${force}" ];then
                 dbg "\${dryrun} set, dont create directory"
@@ -730,25 +775,25 @@ get_envDiffAndRestart() {
     dbg "${FUNCNAME}() was called, arg: ${*}"
     local get_envDownloaded="${localWorkDir}/${get_envRepository}/${get_envRepository}-${get_envBranch}/${myAbsoluteName}"
     if ! diff -q -I '^# .*'  ~/${myName} ${get_envDownloaded} >/dev/null 2>&1; then
-        foldIt echo -e '${INFO}Found newer     ${myName} ${END}'
+        foldIt "-e" "${info}Found newer ${myName}${end}"
         if [ -n "${noGet_envUpdate}" ] || [ -n "${dryrun}" ]; then
             dbg "${noGet_envUpdate} ${dryrun} is set, dont replace or run newer"
-            foldIt echo "Do not run newer ${myName}, ${noGet_envUpdate} ${dryrun} is invoked."
+            foldIt "Do not run newer ${myName}, ${noGet_envUpdate} ${dryrun} is invoked."
         else
-            foldIt echo -en "Replacing       $(echo ~)/${myName}"
+            foldIt "-en" "Replacing       $(echo ~)/${myName}"
             if cp ${get_envDownloaded} ~/${myName}; then
                 ok
                 dbg "Replaced ${myName} with newer successfully."
             else
                 failed "Could not copy the file ${myAbsoluteName} to ${myName}"
             fi
-            foldIt echo -e '${INFO}Executing new $(echo ~)/${myName}${END}'
+            foldIt "-e" "${info}Executing new $(echo ~)/${myName}${end}"
             bar
-            foldIt echo ""
-            foldIt echo ""
+            foldIt ""
+            foldIt ""
             stars
-            foldIt echo ""
-            foldIt echo ""
+            foldIt ""
+            foldIt ""
         # Makes next script start with debug if this instance was started with debug.
             if [ -n "${debug}" ];then
                 cleanup
@@ -759,7 +804,7 @@ get_envDiffAndRestart() {
             fi
         fi
     else
-        foldIt echo "Already running latest ${myName}"
+        foldIt "Already running latest ${myName}"
     fi
     dbg "${FUNCNAME}() leaving function"
 }
@@ -900,7 +945,7 @@ else
 fi
 
 # Source confFile.
-foldIt echo -n "Loading configuration in ${confFile}"
+foldIt "-n" "Loading configuration in ${confFile}"
 if . ${confFile};then
     ok
     dbg "Sourced confFile: ${confFile}"
@@ -910,8 +955,8 @@ fi
 showVariables
 
 # Some verbose things
-foldIt echo "Using ${localWorkDir} as repo."
-foldIt echo "Using branch: ${branch} "
+foldIt "Using ${localWorkDir} as repo."
+foldIt "Using branch: ${branch} "
 
 # Check for internet connection
 if [ -n "${offline}" ];then
@@ -956,7 +1001,7 @@ fi
 # Configuration for all hosts.
 allHostConf="${localWorkDir}/${repository}/${repository}-${branch}/manifest"
 if [ -f "${allHostConf}" ];then
-    foldIt echo "Found configuration for ${repository}"
+    foldIt "Found configuration for ${repository}"
     validateConfig "manifest" "${allHostConf}"
     # Source configuration for all hosts and run actions.
     . "${allHostConf}"
@@ -984,7 +1029,7 @@ dirsToCreate=""
 # Specific host configuration
 hostConf="${localWorkDir}/${repository}/${repository}-${branch}/HOSTS/${HOSTNAME}/manifest"
 if [ -f "${hostConf}" ];then
-    foldIt echo "Found host specific configuration"
+    foldIt "Found host specific configuration"
     validateConfig "manifest" "${hostConf}"
 
     # Source host specific conf and run actions.
@@ -1008,21 +1053,21 @@ for file in ${newFiles} ${updatedFiles}; do
          .bashrc)
 # There was a change in .bashrc and need to source.
             echo ""
-            foldIt echo -e '${INFO}Noticed change in $(echo ~)/.bashrc${END}'
-            foldIt echo ""
-            foldIt echo -e '${INFO}You need to source .bashrc to get the new functions in this shell${END}'
-            foldIt echo "eg:  . ~/.bashrc"
+            foldIt "-e" "${info}Noticed change in $(echo ~)/.bashrc${end}"
+            foldIt ""
+            foldIt "-e" "${info}You need to source .bashrc to get the new functions in this shell${end}"
+            foldIt "eg:  . ~/.bashrc"
             bar
             promptSourceConfigFile=yes
             ;;
         .bashrc.*)
 # There was a change in one of .bashrc.{files} and need to source .bashrc
             if [ -z "${promptSourceConfigFile}" ]; then
-                foldIt echo ""
-                foldIt echo -e '${INFO}Noticed change in $(echo ~)/${file}${END}'
-                foldIt echo ""
-                foldIt echo -e '${INFO}You need to source .bashrc to get the new functions in this shell${END}'
-                foldIt echo "eg:  . ~/.bashrc"
+                foldIt ""
+                foldIt "-e" "${info}Noticed change in $(echo ~)/${file}${end}"
+                foldIt ""
+                foldIt "-e" "${info}You need to source .bashrc to get the new functions in this shell${end}"
+                foldIt "eg:  . ~/.bashrc"
                 bar
                 promptSourceConfigFile=yes
             fi
@@ -1047,19 +1092,19 @@ done
 # done
 
 if [ -z "${newFiles}" ] && [ -z "${updatedFiles}" ] && [ -z "${dryrun}" ];then
-    foldIt echo "No new or changed files."
+    foldIt "No new or changed files."
 fi
 
 if [ -n "${dryrun}" ];then
     if [ -z "${dryrunNewFiles}" ] && [ -z "${dryrunUpdatedFiles}" ];then
-        foldIt echo "No files should been updated."
+        foldIt "No files should been updated."
     else
-        foldIt echo "These files should have been changed: ${dryrunNewFiles} ${dryrunUpdatedFiles}"
+        foldIt "These files should have been changed: ${dryrunNewFiles} ${dryrunUpdatedFiles}"
     fi
     if [ -z "${dryrunCreatedDirs}" ];then
-        foldIt echo "No new directories would have been created"
+        foldIt "No new directories would have been created"
     else
-        foldIt echo "These new directories would have been created: ${dryrunCreatedDirs}"
+        foldIt "These new directories would have been created: ${dryrunCreatedDirs}"
     fi
 fi
 
@@ -1072,5 +1117,5 @@ cleanup
 # End
 dbg "End of script, debugLog saved in ${debugLog}"
 if [ -z "${dryrun}" ];then
-    foldIt echo -e '${INFO}The environment is now up to date.${END}'
+    foldIt "-e" "${info}The environment is now up to date.${end}"
 fi
