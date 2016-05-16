@@ -775,7 +775,7 @@ get_envDiffAndRestart() {
     dbg "${FUNCNAME}() was called, arg: ${*}"
     local get_envDownloaded="${localWorkDir}/${get_envRepository}/${get_envRepository}-${get_envBranch}/${myAbsoluteName}"
     if ! diff -q -I '^# .*'  ~/${myName} ${get_envDownloaded} >/dev/null 2>&1; then
-        foldIt "-e" "${info}Found newer     ${myName} ${end}"
+        foldIt "-e" "${info}Found newer ${myName}${end}"
         if [ -n "${noGet_envUpdate}" ] || [ -n "${dryrun}" ]; then
             dbg "${noGet_envUpdate} ${dryrun} is set, dont replace or run newer"
             foldIt "Do not run newer ${myName}, ${noGet_envUpdate} ${dryrun} is invoked."
