@@ -109,9 +109,11 @@ EOF
 }
 
 # Function for word wrapping
+# Arg: Optional [-e|-n] "Message"
+# -e = extended. "ecoh -e" Needed to show colors.
+# -n = no newline. "echo -n"
 foldIt() {
-# TODO: Fix foldIt() and caller to get rid of eval, and to have to do "set +u"
-    set +u
+    dbg "${FUNCNAME}() was called, arg: ${*}"
     local maxwidth=$(($(tput cols) - 15))
     local extended=""
     local noNewline=""
@@ -126,10 +128,13 @@ foldIt() {
                 dbg "Set noNewline for foldIt()"
                 noNewline="yes"
                 shift
+            ;;
+            echo)
+                shift
         esac
     done
     local input="${1}"
-    if [ -z "${debug}" ] && [ -z "${quietMode}" ];then
+    if [ -z "${quietMode}" ];then
         if [ -z "${extended}" ] && [ -z ${noNewline} ];then
             echo "${input}" | fold -s -w ${maxwidth}
             dbg "$(echo ${input})"
@@ -146,7 +151,7 @@ foldIt() {
             errorExit "Cant echo message: ${1}"
         fi
     fi
-    set -u
+    dbg "${FUNCNAME}() leaving function"
 }
 
 # Function to echo out a coloured bar between sections.
