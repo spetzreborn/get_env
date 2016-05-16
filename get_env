@@ -129,6 +129,18 @@ foldIt() {
                 noNewline="yes"
                 shift
             ;;
+            -en)
+                dbg "Set extended and noNewline for foldIt()"
+                extended="yes"
+                noNewline="yes"
+                shift
+            ;;
+            -ne)
+                dbg "Set extended and noNewline for foldIt()"
+                extended="yes"
+                noNewline="yes"
+                shift
+            ;;
             echo)
                 shift
         esac
@@ -1105,5 +1117,5 @@ cleanup
 # End
 dbg "End of script, debugLog saved in ${debugLog}"
 if [ -z "${dryrun}" ];then
-    foldIt "-e" '${info}The environment is now up to date.${end}'
+    foldIt "-e" "${info}The environment is now up to date.${end}"
 fi
