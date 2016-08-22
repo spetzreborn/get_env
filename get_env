@@ -238,7 +238,6 @@ ncfailed() {
 # Reverse array. Take arguments in: "arrayname"
 reverseArray() {
     local -n array=${1:?Array name required}
-    echo ${array[@]}
     local revarray="" e
     for e in "${array[@]}"
     do
