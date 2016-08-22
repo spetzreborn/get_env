@@ -214,16 +214,14 @@ ncfailed() {
 
 # Reverse array. Take arguments in: "arrayname"
 reverseArray() {
-    # TODO: Fix reverseArray() to get rid of eval, and to have to do "set +u"
-    set +u
-    local arrayname=${1:?Array name required} array revarray e
-    eval "array=( \"\${${arrayname}[@]}\" )"
+    local -n array=${1:?Array name required}
+    echo ${array[@]}
+    local revarray=""
     for e in "${array[@]}"
     do
         revarray=( "${e}" "${revarray[@]}" )
     done
-    eval "${arrayname}=( \"\${revarray[@]}\" )"
-    set -u
+    array=( ${revarray[@]} )
 }
 
 # Debug function
