@@ -216,7 +216,7 @@ ncfailed() {
 reverseArray() {
     local -n array=${1:?Array name required}
     echo ${array[@]}
-    local revarray=""
+    local revarray="" e
     for e in "${array[@]}"
     do
         revarray=( "${e}" "${revarray[@]}" )
