@@ -31,6 +31,29 @@ depends() {
 
 depends wget logger tput cp rm cat tac diff host mkdir grep egrep sed awk fold unzip rsync
 
+# Verify vi have needed version of BASH to be able to continue.
+dependBashVersion() {
+    local depMajor="$1"
+    local depMinor="$2"
+    local depNotMet=""
+    if [ "${BASH_VERSINFO[0]}" -lt "${depMajor}" ]; then
+        depNotMet="1"
+        # Major not met
+    fi
+    if [ "${BASH_VERSINFO[0]}" -eq "${depMajor}" ]; then
+        if [ "${BASH_VERSINFO[1]}" -lt "${depMinor}" ]; then
+            # Minor not met
+            depNotMet="1"
+        fi
+    fi
+    if [ -n "${depNotMet}" ]; then
+        echo "Need BASH version ${depMajor}.${depMinor} or later"
+        exit 1
+    fi
+}
+
+# Depend on BASH 4.3 because use of "local -n" in reverseArray()
+dependBashVersion 4 3
 # The script name
 myName=$(basename ${0})
 
