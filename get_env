@@ -1119,7 +1119,12 @@ if [ -n "${dryrun}" ];then
     if [ -z "${dryrunNewFiles}" ] && [ -z "${dryrunUpdatedFiles}" ];then
         foldIt "No files should been updated."
     else
-        foldIt "These files should have been changed: ${dryrunNewFiles} ${dryrunUpdatedFiles}"
+        if [ -n "${dryrunNewFiles}" ];then
+            foldIt "These new files should have been created: ${dryrunNewFiles}"
+        fi
+        if [ -n "${dryrunUpdatedFiles}" ];then
+            foldIt "These files should have been changed: ${dryrunUpdatedFiles}"
+        fi
     fi
     if [ -z "${dryrunCreatedDirs}" ];then
         foldIt "No new directories would have been created"
