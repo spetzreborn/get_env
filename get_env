@@ -29,7 +29,7 @@ depends() {
     done
 }
 
-depends wget logger tput cp rm cat tac diff host mkdir grep egrep sed awk fold unzip rsync
+depends awk cat cp diff egrep fold grep host logger mkdir rm rsync sed tac tput unzip wget
 
 # Verify vi have needed version of BASH to be able to continue.
 dependBashVersion() {
