@@ -419,9 +419,6 @@ gitCloneAndPull() {
     depends git
     local server=${1}
     local user=${2}
-    # ${repository} can't be local declared, we use modified ${repository} later in script.
-    #TODO: Make better regex. Now repository is only allowed to be named alphanumeric characters, '_' and '.'
-    #repository=$(echo ${3} | egrep -o '[[:alnum:]_\.]+$')
     local repository=${3}
     local branch=${4}
     local sshPort=${5:-"22"}
@@ -775,6 +772,10 @@ validateConfig() {
                 -e "ignoreHosts=" \
                 ${confFile})
             ;;
+        *)
+                dbg "${confType} is not an valid confType."
+                errorExit "Internal error. Run with -d to get more information."
+        ;;
     esac
     if [ -n "${badContent}" ]; then
         dbg "${confFile} is not sanitized: ${badContent}"
