@@ -419,16 +419,13 @@ gitCloneAndPull() {
     depends git
     local server=${1}
     local user=${2}
-    # ${repository} cant be local, we use modified ${repository} later in script.
-    repository=$(echo ${3} | egrep -o '[[:alnum:]_\.]+$')
+    # ${repository} can't be local declared, we use modified ${repository} later in script.
+    #TODO: Make better regex. Now repository is only allowed to be named alphanumeric characters, '_' and '.'
+    #repository=$(echo ${3} | egrep -o '[[:alnum:]_\.]+$')
+    local repository=${3}
     local branch=${4}
     local sshPort=${5:-"22"}
     local gitRemoteRepo="ssh://${user}@${server}:${sshPort}/${pathToRepository}/${repository}"
-
-    # Git may clone both with and without trailing '.git'. Local repository will not have .git, therefore removing it from variable
-    if echo ${repository} | grep -q '\.git$';then
-        repository=$(echo ${repository} | sed 's/\.git$//')
-    fi
 
     createDir -q -f ${localWorkDir}/git
 
@@ -972,10 +969,17 @@ if . ${confFile};then
 else
     failed "Could not source confFile: ${confFile}"
 fi
+
+# Git may clone both with and without trailing '.git'. Local repository will not have .git,
+# therefore removing it from variable
+if echo ${repository} | grep -q '\.git$';then
+    dbg "\${repository} \"${repository}\" ends in \".git\". Removing trailing .git"
+    repository=$(echo ${repository} | sed 's/\.git$//')
+fi
 showVariables
 
 # Some verbose things
-foldIt "Using ${localWorkDir} as repo."
+foldIt "Using ${localWorkDir} as working directory."
 foldIt "Using branch: ${branch} "
 
 # Check for internet connection
