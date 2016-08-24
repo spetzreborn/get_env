@@ -133,7 +133,7 @@ EOF
 
 # Function for word wrapping
 # Arg: Optional [-e|-n] "Message"
-# -e = extended. "ecoh -e" Needed to show colors.
+# -e = extended. "echo -e" Needed to show colors.
 # -n = no newline. "echo -n"
 foldIt() {
     dbg "${FUNCNAME}() was called, arg: ${*}"
