@@ -999,11 +999,16 @@ createDir -f ${localWorkDir}
 if [ -z "${offline}" ];then
     bar
     downloadAndUnzip ${get_envGitServer} ${get_envGitUser} ${get_envRepository} ${get_envBranch}
+else
+    dbg "\${offline} is set \"${offline}\", dont call downloadAndUnzip()"
 fi
+
 # Check if downloaded get_env is newer, then replace and restart
 if [ -z "${offline}" ];then
     bar
     get_envDiffAndRestart
+else
+    dbg "\${offline} is set \"${offline}\", dont call get_envDiffAndRestart()"
 fi
 # Download repository with files
 # TODO: Be able to use both github and gitrepository?. Then download both.
@@ -1015,7 +1020,8 @@ if [ -z "${offline}" ];then
         gitCloneAndPull ${gitServer} ${gitUser} ${repository} ${branch} ${sshPort}
     fi
 # TODO: When offline, check out correct branch.
-
+else
+    dbg "\${offline} is set \"${offline}\", dont call downloadAndUnzip() or gitCloneAndPull()"
 fi
 
 # Configuration for all hosts.
