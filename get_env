@@ -699,8 +699,6 @@ showVariables() {
     dbg "${FUNCNAME}() was called, arg: ${*}"
     dbg "Variables I have: "
     dbg "\${myName}: ${myName}"
-    dbg "\${gituser}: ${gituser:-""}"
-    dbg "\${gitserver}: ${gitserver:-""}"
     dbg "\${localWorkDir}: ${localWorkDir:-""}"
     dbg "\${get_envGitServer}: ${get_envGitServer:-""}"
     dbg "\${get_envGitUser}: ${get_envGitUser:-""}"
