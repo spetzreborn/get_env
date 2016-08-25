@@ -29,7 +29,7 @@ depends() {
     done
 }
 
-depends wget logger tput cp rm cat tac diff host mkdir grep egrep sed awk fold unzip rsync
+depends awk cat cp diff egrep fold grep host logger mkdir rm rsync sed tac tput unzip wget
 
 # Verify vi have needed version of BASH to be able to continue.
 dependBashVersion() {
@@ -133,7 +133,7 @@ EOF
 
 # Function for word wrapping
 # Arg: Optional [-e|-n] "Message"
-# -e = extended. "ecoh -e" Needed to show colors.
+# -e = extended. "echo -e" Needed to show colors.
 # -n = no newline. "echo -n"
 foldIt() {
     dbg "${FUNCNAME}() was called, arg: ${*}"
@@ -280,7 +280,7 @@ report() {
     local awn=""
     local doReport=""
     if [ -n "${offline}" ];then
-        dbg "\${offline} is set, dont report"
+        dbg "\${offline} is set, don't report"
         return 0
     fi
     if [ -n "${reportUrl}" ];then
@@ -347,10 +347,10 @@ cat <<EOF
     options:
     -d   Debug - shows whats happening and saves debugLog in the form
          /tmp/${myName}.debugLog.2013-10-21T10:42:37.XXXXXXXXX
-    -f   Offline - dont require internetconnection. Just refresh from localrepo.
+    -f   Offline - don't require internetconnection. Just refresh from localrepo.
     -h   This helptext
     -l   If debug is used, use this file as debugLog.
-    -n   Dryrun - dont replace files, just show which files would be replaced.
+    -n   Dryrun - don't replace files, just show which files would be replaced.
          May create local workdir for ${myName}.
     -q   Quietmode - no output exept errors, good for running from cron.
     -r   Directory to create and download repo to, default same name as my filename (${myName})
@@ -419,16 +419,10 @@ gitCloneAndPull() {
     depends git
     local server=${1}
     local user=${2}
-    # ${repository} cant be local, we use modified ${repository} later in script.
-    repository=$(echo ${3} | egrep -o '[[:alnum:]_\.]+$')
+    local repository=${3}
     local branch=${4}
     local sshPort=${5:-"22"}
     local gitRemoteRepo="ssh://${user}@${server}:${sshPort}/${pathToRepository}/${repository}"
-
-    # Git may clone both with and without trailing '.git'. Local repository will not have .git, therefore removing it from variable
-    if echo ${repository} | grep -q '\.git$';then
-        repository=$(echo ${repository} | sed 's/\.git$//')
-    fi
 
     createDir -q -f ${localWorkDir}/git
 
@@ -649,7 +643,7 @@ writeConfFile() {
 
 # Creates a directory
 # Arg: Optional [-q|-f] /path/to/directory
-# -q = quiet, dont show
+# -q = quiet, don't show
 # -f = force, create directory even if "dryrun" is invoked.
 createDir() {
     dbg "${FUNCNAME}() was called, arg: ${*}"
@@ -677,7 +671,7 @@ createDir() {
                 foldIt "-n" "Creating directory ${dir}"
             fi
             if [ -n "${dryrun}" ] && [ -z "${force}" ];then
-                dbg "\${dryrun} set, dont create directory"
+                dbg "\${dryrun} set, don't create directory"
                 if [ -z "${quiet}" ];then
                     dryRun
                 fi
@@ -778,6 +772,10 @@ validateConfig() {
                 -e "ignoreHosts=" \
                 ${confFile})
             ;;
+        *)
+                dbg "${confType} is not an valid confType."
+                errorExit "Internal error. Run with -d to get more information."
+        ;;
     esac
     if [ -n "${badContent}" ]; then
         dbg "${confFile} is not sanitized: ${badContent}"
@@ -797,7 +795,7 @@ get_envDiffAndRestart() {
     if ! diff -q -I '^# .*'  ~/${myName} ${get_envDownloaded} >/dev/null 2>&1; then
         foldIt "-e" "${info}Found newer ${myName}${end}"
         if [ -n "${noGet_envUpdate}" ] || [ -n "${dryrun}" ]; then
-            dbg "${noGet_envUpdate} ${dryrun} is set, dont replace or run newer"
+            dbg "${noGet_envUpdate} ${dryrun} is set, don't replace or run newer"
             foldIt "Do not run newer ${myName}, ${noGet_envUpdate} ${dryrun} is invoked."
         else
             foldIt "-en" "Replacing       $(echo ~)/${myName}"
@@ -943,7 +941,7 @@ if [ -f "${confFile}" ];then
     validateConfig "get_env" "${confFile}"
 
 # Matches variables in default confFile and confFile. Only counts VARIABLE_NAME=variable. Variables must be set
-#TODO: Dont invert check, just make regex for variables.
+#TODO: Don't invert check, just make regex for variables.
     numberOfVariablesInConfFile=$(egrep -c -v\
     -e "^#" \
     -e "^$" \
@@ -972,22 +970,29 @@ if . ${confFile};then
 else
     failed "Could not source confFile: ${confFile}"
 fi
+
+# Git may clone both with and without trailing '.git'. Local repository will not have .git,
+# therefore removing it from variable
+if echo ${repository} | grep -q '\.git$';then
+    dbg "\${repository} \"${repository}\" ends in \".git\". Removing trailing .git"
+    repository=$(echo ${repository} | sed 's/\.git$//')
+fi
 showVariables
 
 # Some verbose things
-foldIt "Using ${localWorkDir} as repo."
+foldIt "Using ${localWorkDir} as working directory."
 foldIt "Using branch: ${branch} "
 
 # Check for internet connection
 if [ -n "${offline}" ];then
-    dbg "\${offline} is set \"${offline}\", dont check inetconn"
+    dbg "\${offline} is set \"${offline}\", don't check inetconn"
 else
     dbg "Checking for internet connection . . ."
     inetCon=$(host "${get_envGitServer}")
     inetErr=${?}
     dbg "Checked internet connection by 'host ${get_envGitServer}' answer:${inetCon}"
     if [ "${inetErr}" != "0" ];then
-        offline="Dont try to report, no connection"
+        offline="Don't try to report, no connection"
         errorExit "No internet connection or none functional dns. Exiting"
     fi
 fi
@@ -999,11 +1004,16 @@ createDir -f ${localWorkDir}
 if [ -z "${offline}" ];then
     bar
     downloadAndUnzip ${get_envGitServer} ${get_envGitUser} ${get_envRepository} ${get_envBranch}
+else
+    dbg "\${offline} is set \"${offline}\", don't call downloadAndUnzip()"
 fi
+
 # Check if downloaded get_env is newer, then replace and restart
 if [ -z "${offline}" ];then
     bar
     get_envDiffAndRestart
+else
+    dbg "\${offline} is set \"${offline}\", don't call get_envDiffAndRestart()"
 fi
 # Download repository with files
 # TODO: Be able to use both github and gitrepository?. Then download both.
@@ -1015,7 +1025,8 @@ if [ -z "${offline}" ];then
         gitCloneAndPull ${gitServer} ${gitUser} ${repository} ${branch} ${sshPort}
     fi
 # TODO: When offline, check out correct branch.
-
+else
+    dbg "\${offline} is set \"${offline}\", don't call downloadAndUnzip() or gitCloneAndPull()"
 fi
 
 # Configuration for all hosts.
@@ -1036,7 +1047,7 @@ if [ -f "${allHostConf}" ];then
             copyFiles ${array}
         done
     else
-        dbg "${HOSTNAME} in manifest ignorelist. Dont run manifest"
+        dbg "${HOSTNAME} in manifest ignorelist. Don't run manifest"
     fi
 else
     errorExit "Cant find 'manifest': ${allHostConf}"
@@ -1119,7 +1130,12 @@ if [ -n "${dryrun}" ];then
     if [ -z "${dryrunNewFiles}" ] && [ -z "${dryrunUpdatedFiles}" ];then
         foldIt "No files should been updated."
     else
-        foldIt "These files should have been changed: ${dryrunNewFiles} ${dryrunUpdatedFiles}"
+        if [ -n "${dryrunNewFiles}" ];then
+            foldIt "These new files should have been created: ${dryrunNewFiles}"
+        fi
+        if [ -n "${dryrunUpdatedFiles}" ];then
+            foldIt "These files should have been changed: ${dryrunUpdatedFiles}"
+        fi
     fi
     if [ -z "${dryrunCreatedDirs}" ];then
         foldIt "No new directories would have been created"
