@@ -983,7 +983,7 @@ foldIt "Using branch: ${branch} "
 
 # Check for internet connection
 if [ -n "${offline}" ];then
-    dbg "\${offline} is set \"${offline}\", don't check inetconn"
+    dbg "\${offline} is set \"${offline}\", don't check internet connection"
 else
     dbg "Checking for internet connection . . ."
     inetCon=$(host "${get_envGitServer}")
