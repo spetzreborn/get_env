@@ -100,7 +100,7 @@ noGet_envUpdate=""
 quietMode=""
 reportUrl=""
 dateFormat='%Y-%m-%d %H:%M:%S'
-ddate=$(date +${dateFormat})
+ddate=$(date +"${dateFormat}")
 
 ###  Functions
 
