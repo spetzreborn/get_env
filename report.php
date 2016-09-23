@@ -10,7 +10,7 @@ if ($_REQUEST["error"] != "")
 	$myFile = $errorFile;
 else
 	$myFile = $reportFile;
-$info = "servertime=\"" . date(c) . "\";" . "ip=\"" . $_SERVER["REMOTE_ADDR"] . "\";" . "$info";
+$info = "servertime=\"" . date("Y-m-d H:i:s") . "\";" . "ip=\"" . $_SERVER["REMOTE_ADDR"] . "\";" . "$info";
 $fh = fopen($myFile, 'a') or die("can't open file");
 fwrite($fh, "$info\n");
 fclose($fh);

@@ -99,7 +99,7 @@ dryrunNewFiles=""
 noGet_envUpdate=""
 quietMode=""
 reportUrl=""
-dateFormat='%Y-%m-%dT%H:%M:%S'
+dateFormat='%Y-%m-%d %H:%M:%S'
 ddate=$(date +${dateFormat})
 
 ###  Functions
