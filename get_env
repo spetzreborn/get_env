@@ -911,7 +911,7 @@ done
 # Only create a debugLog if there is not one.
 if [ -n "${debug}" ];then
     if [ -z "${debugLog}" ];then
-        debugLog=$(mktemp /tmp/${myName}.debugLog.${ddate}.XXXXXXXXX)
+        debugLog=$(mktemp /tmp/${myName}.debugLog."${ddate}".XXXXXX)
     fi
 fi
 
