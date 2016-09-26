@@ -292,7 +292,7 @@ report() {
         done
         # TODO: Refactor to not use eval
         doReport='wget "${reportUrl}" -q -O /dev/null --post-data "
-date=$(date +${dateFormat})&
+date=$(date +"${dateFormat}")&
 hostname=${HOSTNAME}&
 user=${USER}&
 get_envGitServer=${get_envGitServer}&
@@ -609,7 +609,7 @@ pathToRepository=${pathToRepository:-"none"}
 localWorkDir=${localWorkDir}
 
 # If set, report status to this address. (Uses report.php from github.com/spetzreborn/get_env)
-#reportUrl=""
+reportUrl=""
 "
 
     # TODO: Just grep on variables? Set and unset, eg reportUrl can be both.
@@ -758,6 +758,7 @@ validateConfig() {
                 -e "^sshPort=([A-Za-z0-9/_~. ]+)?$" \
                 -e "^pathToRepository=([A-Za-z0-9/_~. ]+)?$" \
                 -e "^localWorkDir=[A-Za-z0-9/_~. ]+$" \
+                -e "^reportUrl=[A-Za-z0-9/_~. :]+$" \
                 ${confFile})
             ;;
         "manifest")
