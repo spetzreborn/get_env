@@ -526,14 +526,14 @@ copyFiles() {
                     createDir "${localWorkDir}/backup"
                     foldIt "-n" "Found difference in ${toDir}/${file}, making backup"
                     if [ $(echo ${file} | cut -c1) == "." ];then
-                        if cp ${toDir}/${file} ${localWorkDir}/backup/dot${file}.${ddate}; then
+                        if cp ${toDir}/${file} ${localWorkDir}/backup/dot${file}."${ddate}"; then
                             ok
                             dbg "Backed up: ${localWorkDir}/backup/${file}.${ddate}"
                         else
                             ncfailed
                         fi
                     else
-                        if cp ${toDir}/${file} ${localWorkDir}/backup/${file}.${ddate}; then
+                        if cp ${toDir}/${file} ${localWorkDir}/backup/${file}."${ddate}"; then
                             ok
                             dbg "Backed up: ${localWorkDir}/backup/${file}.${ddate}"
                         else
