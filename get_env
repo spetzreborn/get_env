@@ -758,6 +758,7 @@ validateConfig() {
                 -e "^sshPort=([A-Za-z0-9/_~. ]+)?$" \
                 -e "^pathToRepository=([A-Za-z0-9/_~. ]+)?$" \
                 -e "^localWorkDir=[A-Za-z0-9/_~. ]+$" \
+                -e "^reportUrl=$" \
                 -e "^reportUrl=[A-Za-z0-9/_~. :]+$" \
                 ${confFile})
             ;;
