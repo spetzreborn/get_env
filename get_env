@@ -61,7 +61,7 @@ myName=$(basename ${0})
 myAbsoluteName=get_env
 
 # Configuration file
-confFile=~/${myName}.conf
+confFile=~/"${myName}".conf
 
 # The directory program was started in
 myStartDirectory=$(pwd)
@@ -621,7 +621,7 @@ reportUrl=""
 # Arg: variable value
 changeConfFile() {
     dbg "${FUNCNAME}() was called, arg: ${*}"
-    sed -i "s/\(${1} *= *\).*/\1${2}/" ${confFile}
+    sed -i "s/\(${1} *= *\).*/\1${2}/" "${confFile}"
     dbg "${FUNCNAME}() leaving function"
 }
 
@@ -759,7 +759,7 @@ validateConfig() {
                 -e "^pathToRepository=([A-Za-z0-9/_~. \"]+)?$" \
                 -e "^localWorkDir=[A-Za-z0-9/_~. \"]+$" \
                 -e "^reportUrl=[A-Za-z0-9/_~. :\"]*$" \
-                ${confFile})
+                "${confFile}")
             ;;
         "manifest")
                 dbg "Validate type: manifest"
@@ -769,7 +769,7 @@ validateConfig() {
                 -e "dirsToCreate=" \
                 -e "^files2copy[[][0-9]+[]]='?\"?[A-Za-z0-9/_~. $]+'?\"?" \
                 -e "ignoreHosts=" \
-                ${confFile})
+                "${confFile}")
             ;;
         *)
                 dbg "${confType} is not an valid confType."
@@ -941,11 +941,7 @@ if [ -f "${confFile}" ];then
 
 # Matches variables in default confFile and confFile. Only counts VARIABLE_NAME=variable. Variables must be set
 #TODO: Don't invert check, just make regex for variables.
-    numberOfVariablesInConfFile=$(egrep -c -v\
-    -e "^#" \
-    -e "^$" \
-    -e "^files2copy[[][0-9]+[]]='?\"?[A-Za-z0-9/_~. $]+'?\"?" \
-    ${confFile})
+    numberOfVariablesInConfFile=$(egrep -c -e "^[^#]" "${confFile}")
     if [ "${numberOfVariablesInConfFile}" -eq "${confFileVariables}" ]; then
         dbg "confFile contains correct number of variables."
     else
@@ -957,13 +953,13 @@ if [ -f "${confFile}" ];then
     fi
 else
     dbg "\${confFile} (${confFile}) does not exist, creating."
-    writeConfFile ${confFile}
+    writeConfFile "${confFile}"
     errorExit "Created ${confFile}, before running ${myName} again, edit ${confFile}"
 fi
 
 # Source confFile.
 foldIt "-n" "Loading configuration in ${confFile}"
-if . ${confFile};then
+if . "${confFile}";then
     ok
     dbg "Sourced confFile: ${confFile}"
 else
