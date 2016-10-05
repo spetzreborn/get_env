@@ -97,6 +97,7 @@ dryrunCreatedDirs=""
 dryrunUpdatedFiles=""
 dryrunNewFiles=""
 noGet_envUpdate=""
+promptSourceConfigFile=""
 quietMode=""
 reportUrl=""
 dateFormat='%Y-%m-%d %H:%M:%S'
