@@ -61,7 +61,7 @@ myName=$(basename ${0})
 myAbsoluteName=get_env
 
 # Configuration file
-confFile=~/${myName}.conf
+confFile=~/"${myName}".conf
 
 # The directory program was started in
 myStartDirectory=$(pwd)
@@ -99,8 +99,8 @@ dryrunNewFiles=""
 noGet_envUpdate=""
 quietMode=""
 reportUrl=""
-dateFormat='%Y-%m-%dT%H:%M:%S'
-ddate=$(date +${dateFormat})
+dateFormat='%Y-%m-%d %H:%M:%S'
+ddate=$(date +"${dateFormat}")
 
 ###  Functions
 
@@ -292,7 +292,7 @@ report() {
         done
         # TODO: Refactor to not use eval
         doReport='wget "${reportUrl}" -q -O /dev/null --post-data "
-date=$(date +${dateFormat})&
+date=$(date +"${dateFormat}")&
 hostname=${HOSTNAME}&
 user=${USER}&
 get_envGitServer=${get_envGitServer}&
@@ -526,14 +526,14 @@ copyFiles() {
                     createDir "${localWorkDir}/backup"
                     foldIt "-n" "Found difference in ${toDir}/${file}, making backup"
                     if [ $(echo ${file} | cut -c1) == "." ];then
-                        if cp ${toDir}/${file} ${localWorkDir}/backup/dot${file}.${ddate}; then
+                        if cp ${toDir}/${file} ${localWorkDir}/backup/dot${file}."${ddate}"; then
                             ok
                             dbg "Backed up: ${localWorkDir}/backup/${file}.${ddate}"
                         else
                             ncfailed
                         fi
                     else
-                        if cp ${toDir}/${file} ${localWorkDir}/backup/${file}.${ddate}; then
+                        if cp ${toDir}/${file} ${localWorkDir}/backup/${file}."${ddate}"; then
                             ok
                             dbg "Backed up: ${localWorkDir}/backup/${file}.${ddate}"
                         else
@@ -609,7 +609,7 @@ pathToRepository=${pathToRepository:-"none"}
 localWorkDir=${localWorkDir}
 
 # If set, report status to this address. (Uses report.php from github.com/spetzreborn/get_env)
-#reportUrl=""
+reportUrl=""
 "
 
     # TODO: Just grep on variables? Set and unset, eg reportUrl can be both.
@@ -621,7 +621,7 @@ localWorkDir=${localWorkDir}
 # Arg: variable value
 changeConfFile() {
     dbg "${FUNCNAME}() was called, arg: ${*}"
-    sed -i "s/\(${1} *= *\).*/\1${2}/" ${confFile}
+    sed -i "s/\(${1} *= *\).*/\1${2}/" "${confFile}"
     dbg "${FUNCNAME}() leaving function"
 }
 
@@ -746,19 +746,20 @@ validateConfig() {
                 badContent=$(egrep -v \
                 -e "^#" \
                 -e "^$" \
-                -e "^get_envGitServer=[A-Za-z0-9/_~. ]+$" \
-                -e "^get_envGitUser=[A-Za-z0-9/_~. ]+$" \
-                -e "^get_envRepository=[A-Za-z0-9/_~. ]+$" \
-                -e "^get_envBranch=[A-Za-z0-9/_~. ]+$" \
-                -e "^get_envBranch=[A-Za-z0-9/_~. ]+$" \
-                -e "^gitServer=[A-Za-z0-9/_~. ]+$" \
-                -e "^gitUser=[A-Za-z0-9/_~. ]+$" \
-                -e "^repository=[A-Za-z0-9/_~. ]+$" \
-                -e "^branch=[A-Za-z0-9/_~. ]+$" \
-                -e "^sshPort=([A-Za-z0-9/_~. ]+)?$" \
-                -e "^pathToRepository=([A-Za-z0-9/_~. ]+)?$" \
-                -e "^localWorkDir=[A-Za-z0-9/_~. ]+$" \
-                ${confFile})
+                -e "^get_envGitServer=[A-Za-z0-9/_~. \"]+$" \
+                -e "^get_envGitUser=[A-Za-z0-9/_~. \"]+$" \
+                -e "^get_envRepository=[A-Za-z0-9/_~. \"]+$" \
+                -e "^get_envBranch=[A-Za-z0-9/_~. \"]+$" \
+                -e "^get_envBranch=[A-Za-z0-9/_~. \"]+$" \
+                -e "^gitServer=[A-Za-z0-9/_~. \"]+$" \
+                -e "^gitUser=[A-Za-z0-9/_~. \"]+$" \
+                -e "^repository=[A-Za-z0-9/_~. \"]+$" \
+                -e "^branch=[A-Za-z0-9/_~. \"]+$" \
+                -e "^sshPort=([A-Za-z0-9/_~. \"]+)?$" \
+                -e "^pathToRepository=([A-Za-z0-9/_~. \"]+)?$" \
+                -e "^localWorkDir=[A-Za-z0-9/_~. \"]+$" \
+                -e "^reportUrl=[A-Za-z0-9/_~. :\"]*$" \
+                "${confFile}")
             ;;
         "manifest")
                 dbg "Validate type: manifest"
@@ -768,7 +769,7 @@ validateConfig() {
                 -e "dirsToCreate=" \
                 -e "^files2copy[[][0-9]+[]]='?\"?[A-Za-z0-9/_~. $]+'?\"?" \
                 -e "ignoreHosts=" \
-                ${confFile})
+                "${confFile}")
             ;;
         *)
                 dbg "${confType} is not an valid confType."
@@ -909,7 +910,7 @@ done
 # Only create a debugLog if there is not one.
 if [ -n "${debug}" ];then
     if [ -z "${debugLog}" ];then
-        debugLog=$(mktemp /tmp/${myName}.debugLog.${ddate}.XXXXXXXXX)
+        debugLog=$(mktemp /tmp/${myName}.debugLog."${ddate}".XXXXXX)
     fi
 fi
 
@@ -940,11 +941,7 @@ if [ -f "${confFile}" ];then
 
 # Matches variables in default confFile and confFile. Only counts VARIABLE_NAME=variable. Variables must be set
 #TODO: Don't invert check, just make regex for variables.
-    numberOfVariablesInConfFile=$(egrep -c -v\
-    -e "^#" \
-    -e "^$" \
-    -e "^files2copy[[][0-9]+[]]='?\"?[A-Za-z0-9/_~. $]+'?\"?" \
-    ${confFile})
+    numberOfVariablesInConfFile=$(egrep -c -e "^[^#]" "${confFile}")
     if [ "${numberOfVariablesInConfFile}" -eq "${confFileVariables}" ]; then
         dbg "confFile contains correct number of variables."
     else
@@ -956,13 +953,13 @@ if [ -f "${confFile}" ];then
     fi
 else
     dbg "\${confFile} (${confFile}) does not exist, creating."
-    writeConfFile ${confFile}
+    writeConfFile "${confFile}"
     errorExit "Created ${confFile}, before running ${myName} again, edit ${confFile}"
 fi
 
 # Source confFile.
 foldIt "-n" "Loading configuration in ${confFile}"
-if . ${confFile};then
+if . "${confFile}";then
     ok
     dbg "Sourced confFile: ${confFile}"
 else

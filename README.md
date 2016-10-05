@@ -7,8 +7,11 @@ get_env
 * #### Simple
 One program file, one configuration file and one working directory.
 
+* #### Uses git
+Use github or own git-repository for environment files.
+
 * #### No need for root
-Will work on your shell on your friends server,
+Will work on your shell on your friends server.
 
 * #### Renameable - May use multiple get_env
 The program is interchangeable in name, just rename the program file.
