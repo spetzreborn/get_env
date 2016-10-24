@@ -610,7 +610,7 @@ pathToRepository=${pathToRepository:-"none"}
 localWorkDir=${localWorkDir}
 
 # If set, report status to this address. (Uses report.php from github.com/spetzreborn/get_env)
-reportUrl=""
+reportUrl=\"\"
 "
 
     # TODO: Just grep on variables? Set and unset, eg reportUrl can be both.
