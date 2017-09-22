@@ -748,13 +748,13 @@ validateConfig() {
                 badContent=$(egrep -v \
                 -e "^#" \
                 -e "^$" \
-                -e "^get_envGitServer=[A-Za-z0-9/_~. \"]+$" \
-                -e "^get_envGitUser=[A-Za-z0-9/_~. \"]+$" \
+                -e "^get_envGitServer=[A-Za-z0-9/_~. \"-]+$" \
+                -e "^get_envGitUser=[A-Za-z0-9/_~. \"-]+$" \
                 -e "^get_envRepository=[A-Za-z0-9/_~. \"]+$" \
                 -e "^get_envBranch=[A-Za-z0-9/_~. \"]+$" \
                 -e "^get_envBranch=[A-Za-z0-9/_~. \"]+$" \
-                -e "^gitServer=[A-Za-z0-9/_~. \"]+$" \
-                -e "^gitUser=[A-Za-z0-9/_~. \"]+$" \
+                -e "^gitServer=[A-Za-z0-9/_~. \"-]+$" \
+                -e "^gitUser=[A-Za-z0-9/_~. \"-]+$" \
                 -e "^repository=[A-Za-z0-9/_~. \"]+$" \
                 -e "^branch=[A-Za-z0-9/_~. \"]+$" \
                 -e "^sshPort=([A-Za-z0-9/_~. \"]+)?$" \
