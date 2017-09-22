@@ -748,13 +748,13 @@ validateConfig() {
                 badContent=$(egrep -v \
                 -e "^#" \
                 -e "^$" \
-                -e "^get_envGitServer=[A-Za-z0-9/_~. \"]+$" \
-                -e "^get_envGitUser=[A-Za-z0-9/_~. \"]+$" \
+                -e "^get_envGitServer=[A-Za-z0-9/_~. \"-]+$" \
+                -e "^get_envGitUser=[A-Za-z0-9/_~. \"-]+$" \
                 -e "^get_envRepository=[A-Za-z0-9/_~. \"]+$" \
                 -e "^get_envBranch=[A-Za-z0-9/_~. \"]+$" \
                 -e "^get_envBranch=[A-Za-z0-9/_~. \"]+$" \
-                -e "^gitServer=[A-Za-z0-9/_~. \"]+$" \
-                -e "^gitUser=[A-Za-z0-9/_~. \"]+$" \
+                -e "^gitServer=[A-Za-z0-9/_~. \"-]+$" \
+                -e "^gitUser=[A-Za-z0-9/_~. \"-]+$" \
                 -e "^repository=[A-Za-z0-9/_~. \"]+$" \
                 -e "^branch=[A-Za-z0-9/_~. \"]+$" \
                 -e "^sshPort=([A-Za-z0-9/_~. \"]+)?$" \
@@ -1078,30 +1078,20 @@ dbg "\${updatedFiles}: ${updatedFiles}"
 # Special things for new or updated files:
 for file in ${newFiles} ${updatedFiles}; do
     case ${file} in
-         .bashrc)
-# There was a change in .bashrc and need to source.
-            echo ""
-            foldIt "-e" "${info}Noticed change in $(echo ~)/.bashrc${end}"
-            foldIt ""
-            foldIt "-e" "${info}You need to source .bashrc to get the new functions in this shell${end}"
-            foldIt "eg:  . ~/.bashrc"
-            bar
+        .bashrc*)
+# There was a change in one of .bashrc(.){files} and need to source .bashrc
+            foldIt "-e" "${info}Noticed change in $(echo ~)/${file}${end}"
             promptSourceConfigFile=yes
-            ;;
-        .bashrc.*)
-# There was a change in one of .bashrc.{files} and need to source .bashrc
-            if [ -z "${promptSourceConfigFile}" ]; then
-                foldIt ""
-                foldIt "-e" "${info}Noticed change in $(echo ~)/${file}${end}"
-                foldIt ""
-                foldIt "-e" "${info}You need to source .bashrc to get the new functions in this shell${end}"
-                foldIt "eg:  . ~/.bashrc"
-                bar
-                promptSourceConfigFile=yes
-            fi
         ;;
     esac
 done
+if [ -n "${promptSourceConfigFile}" ]; then
+    foldIt ""
+    bar
+    foldIt "-e" "${info}You need to source .bashrc to get the new functions in this shell${end}"
+    foldIt "eg:  . ~/.bashrc"
+    bar
+fi
 
 # # Special things for new files:
 # for file in ${newFiles}; do
