@@ -978,7 +978,7 @@ showVariables
 
 # Some verbose things
 foldIt "Using ${localWorkDir} as working directory."
-foldIt "Using branch: ${branch} "
+foldIt "Using branch: ${get_envBranch} "
 
 # Check for internet connection
 if [ -n "${offline}" ];then
