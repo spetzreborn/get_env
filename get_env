@@ -517,14 +517,14 @@ copyFiles() {
 
     for file in ${*}; do
         # Test if the source file exists
-        if [ ! -f ${localWorkDir}/${repository}/${repository}-${branch}/${fromDir}/${file} ]; then
+        if [ ! -f "${localWorkDir}/${repository}/${repository}-${branch}/${fromDir}/${file}" ]; then
             foldIt "-n" "Checking for file ${file}"
             failed "File does not exists: ${localWorkDir}/${repository}/${repository}-${branch}/${fromDir}/${file}"
         fi
         # If the destination file exist ...
         if [ -f "${toDir}/${file}" ]; then
             # .. diff it with the source file
-            if ! diff -q ${localWorkDir}/${repository}/${repository}-${branch}/${fromDir}/${file} ${toDir}/${file} >/dev/null 2>&1; then
+            if ! diff -q "${localWorkDir}/${repository}/${repository}-${branch}/${fromDir}/${file}" "${toDir}/${file}" >/dev/null 2>&1; then
                 if [ -z "${dryrun}" ]; then
                     # .. And if it is not the same, copy to backup file:
                     # TODO: gzip backup? Number of backups? Better structure?
@@ -538,7 +538,7 @@ copyFiles() {
                             ncfailed
                         fi
                     else
-                        if cp ${toDir}/${file} ${localWorkDir}/backup/${file}."${ddate}"; then
+                        if cp "${toDir}/${file}" "${localWorkDir}/backup/${file}.${ddate}"; then
                             ok
                             dbg "Backed up: ${localWorkDir}/backup/${file}.${ddate}"
                         else
@@ -552,7 +552,7 @@ copyFiles() {
                     dryRun
                     dryrunUpdatedFiles="${dryrunUpdatedFiles}${file} "
                 else
-                    if cp ${localWorkDir}/${repository}/${repository}-${branch}/${fromDir}/${file} ${toDir}/${file}; then
+                    if cp "${localWorkDir}/${repository}/${repository}-${branch}/${fromDir}/${file}" "${toDir}/${file}"; then
                         ok
                         dbg "Updated file: ${toDir}/${file} copied ok"
                         updatedFiles="${updatedFiles}${file} "
@@ -803,14 +803,14 @@ get_envDiffAndRestart() {
             dbg "${noGet_envUpdate} ${dryrun} is set, don't replace or run newer"
             foldIt "Do not run newer ${myName}, ${noGet_envUpdate} ${dryrun} is invoked."
         else
-            foldIt "-en" "Replacing       $(echo ~)/${myName}"
+            foldIt "-en" "Replacing       $HOME/${myName}"
             if cp ${get_envDownloaded} ~/${myName}; then
                 ok
                 dbg "Replaced ${myName} with newer successfully."
             else
                 failed "Could not copy the file ${myAbsoluteName} to ${myName}"
             fi
-            foldIt "-e" "${info}Executing new $(echo ~)/${myName}${end}"
+            foldIt "-e" "${info}Executing new $HOME/${myName}${end}"
             bar
             foldIt ""
             foldIt ""
@@ -842,14 +842,14 @@ syncFiles() {
         errorExit "${sourceDir} does not exists."
     fi
     if [ -z "${debug}" ]; then
-        if rsync -aq --delete ${sourceDir} ${destDir}; then
+        if rsync -aq --delete "${sourceDir}" "${destDir}"; then
             ok
             dbg "rsync to ${destDir}"
         else
             failed "Failed to rsync"
         fi
     else
-        if rsync -av --delete ${sourceDir} ${destDir}; then
+        if rsync -av --delete "${sourceDir}" "${destDir}"; then
             ok
             dbg "rsync to ${destDir}"
         else
@@ -860,11 +860,13 @@ syncFiles() {
 }
 
 # TODO: Call cleanup() by trap? trap cleanup EXIT
+# shellcheck disable=SC2120 # Arguments are optional and not used.
 cleanup() {
     # Remove downloaded files and temporary directories
     dbg "${FUNCNAME}() was called, arg: ${*}"
-    if [ -d ${downloadDir} ]; then
-        rm -r ${downloadDir}
+    if [ -d "${downloadDir}" ]; then
+        dbg "Deleting ${downloadDir}"
+        rm -r "${downloadDir}"
     fi
     dbg "${FUNCNAME}() leaving function"
 }
@@ -925,12 +927,12 @@ showVariables
 
 # Verify write permissions in home directory
 if [ ! -w ~ ]; then
-    errorExit "Have no write permissions in $(echo ~)"
+    errorExit "Have no write permissions in $HOME"
 fi
 
 # If argument -r was not given, set default ${localWorkDir} to absolute path
 if [ -z "${localWorkDir:-""}" ]; then
-    localWorkDir="$(echo ~/.${myName})"
+    localWorkDir="$HOME/.${myName})"
     dbg 'Setting defult ${localWorkDir} to absolute path: ' "${localWorkDir}"
 fi
 
@@ -1004,7 +1006,7 @@ createDir -f ${localWorkDir}
 # Download latest get_env and repository as zip from github
 if [ -z "${offline}" ]; then
     bar
-    downloadAndUnzip ${get_envGitServer} ${get_envGitUser} ${get_envRepository} ${get_envBranch}
+    downloadAndUnzip "${get_envGitServer}" "${get_envGitUser}" "${get_envRepository}" "${get_envBranch}"
 else
     dbg "\${offline} is set \"${offline}\", don't call downloadAndUnzip()"
 fi
@@ -1021,9 +1023,9 @@ fi
 if [ -z "${offline}" ]; then
     bar
     if [ "${gitServer}" = "github.com" ]; then
-        downloadAndUnzip ${gitServer} ${gitUser} ${repository} ${branch}
+        downloadAndUnzip "${gitServer}" "${gitUser}" "${repository}" "${branch}"
     else
-        gitCloneAndPull ${gitServer} ${gitUser} ${repository} ${branch} ${sshPort}
+        gitCloneAndPull "${gitServer}" "${gitUser}" "${repository}" "${branch}" "${sshPort}"
     fi
 # TODO: When offline, check out correct branch.
 else
@@ -1045,6 +1047,7 @@ if [ -f "${allHostConf}" ]; then
             createDir ${dir}
         done
         for array in "${files2copy[@]}"; do
+            # shellcheck disable=SC2086 # This function need globbing.
             copyFiles ${array}
         done
     else
@@ -1084,7 +1087,7 @@ for file in ${newFiles} ${updatedFiles}; do
     case ${file} in
     .bashrc*)
         # There was a change in one of .bashrc(.){files} and need to source .bashrc
-        foldIt "-e" "${info}Noticed change in $(echo ~)/${file}${end}"
+        foldIt "-e" "${info}Noticed change in $HOME/${file}${end}"
         promptSourceConfigFile=yes
         ;;
     esac
