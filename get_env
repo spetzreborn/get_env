@@ -618,8 +618,7 @@ backupKeepRuns=${backupKeepRuns:-""}
 reportUrl=\"\"
 "
 
-    # TODO: Just grep on variables? Set and unset, eg reportUrl can be both.
-    confFileVariables=$(echo "${confFileContent}" | egrep -c '^[^#]')
+    confFileVariableNames=$(echo "${confFileContent}" | egrep -o '^[A-Za-z_][A-Za-z0-9_]*=')
     dbg "${FUNCNAME}() leaving function"
 }
 
@@ -1017,17 +1016,22 @@ if [ -f "${confFile}" ]; then
     # Sanitize confFile so that only sane line exists.
     validateConfig "get_env" "${confFile}"
 
-    # Matches variables in default confFile and confFile. Only counts VARIABLE_NAME=variable. Variables must be set
-    #TODO: Don't invert check, just make regex for variables.
-    numberOfVariablesInConfFile=$(egrep -c -e "^[^#]" "${confFile}")
-    if [ "${numberOfVariablesInConfFile}" -eq "${confFileVariables}" ]; then
-        dbg "confFile contains correct number of variables."
+    # Checks that every variable the current get_env version expects is actually
+    # set in confFile, by name.
+    missingVariables=""
+    for varName in ${confFileVariableNames}; do
+        if ! grep -q "^${varName}" "${confFile}"; then
+            missingVariables="${missingVariables}${varName} "
+        fi
+    done
+    if [ -z "${missingVariables}" ]; then
+        dbg "confFile contains all expected variables."
     else
-        dbg "Wrong number of variable in ${confFile}, ${numberOfVariablesInConfFile} vs ${confFileVariables}"
+        dbg "Missing in ${confFile}: ${missingVariables}"
         dbg "Create new conffile"
         # Create new confFile
         writeConfFile ${confFile}.new
-        errorExit "Created ${confFile}.new, before running ${myName} again, edit and move this file to ${confFile}"
+        errorExit "Created ${confFile}.new because ${confFile} is missing: ${missingVariables}- edit and move this file to ${confFile}"
     fi
 else
     dbg "\${confFile} (${confFile}) does not exist, creating."
