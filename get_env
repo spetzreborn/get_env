@@ -992,6 +992,19 @@ if [ -z "${localWorkDir:-""}" ]; then
     dbg 'Setting defult ${localWorkDir} to absolute path: ' "${localWorkDir}"
 fi
 
+# If confFile already exists, pre-load its values (once validated as safe) so that
+# generateConfFile() below falls back to what's already configured instead of its
+# hardcoded defaults - both when just counting variables and when writing a
+# ${confFile}.new for a version bump. ${localWorkDir} is deliberately restored
+# afterwards: it must stay whatever -r or the default above already set it to,
+# not whatever an older confFile has stored.
+if [ -f "${confFile}" ] && [ -r "${confFile}" ]; then
+    validateConfig "get_env" "${confFile}"
+    preLoadLocalWorkDir="${localWorkDir}"
+    . "${confFile}"
+    localWorkDir="${preLoadLocalWorkDir}"
+fi
+
 # generateConfFile() must be run before attempting to compare confFiles, but after ${localWorkDir} is set.
 generateConfFile
 # Checks if confFile exists and have read and write permissions.
