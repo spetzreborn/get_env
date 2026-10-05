@@ -533,7 +533,6 @@ copyFiles() {
                     # run are grouped under one timestamp directory and mirror ${toDir}, so
                     # same-named files from different directories can't collide or overwrite
                     # each other, and the original filename (dotfile or not) is kept intact.
-                    # TODO: gzip backup? Number of backups?
                     local backupFile="${localWorkDir}/backup/${backupTimestamp}${toDir}/${file}"
                     createDir "${backupFile%/*}"
                     foldIt "-n" "Found difference in ${toDir}/${file}, making backup"
