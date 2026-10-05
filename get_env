@@ -173,16 +173,16 @@ foldIt() {
     done
     local input="${1}"
     if [ -z "${quietMode}" ]; then
-        if [ -z "${extended}" ] && [ -z ${noNewline} ]; then
+        if [ -z "${extended}" ] && [ -z "${noNewline}" ]; then
             echo "${input}" | fold -s -w ${maxwidth}
             dbg "$(echo ${input})"
-        elif [ -n "${extended}" ] && [ -z ${noNewline} ]; then
+        elif [ -n "${extended}" ] && [ -z "${noNewline}" ]; then
             echo -e "${input}" | fold -s -w ${maxwidth}
             dbg "$(echo -e ${input})"
-        elif [ -z "${extended}" ] && [ -n ${noNewline} ]; then
+        elif [ -z "${extended}" ] && [ -n "${noNewline}" ]; then
             echo -n "${input}" | fold -s -w ${maxwidth}
             dbg "$(echo -n ${input})"
-        elif [ -n "${extended}" ] && [ -n ${noNewline} ]; then
+        elif [ -n "${extended}" ] && [ -n "${noNewline}" ]; then
             echo -en "${input}" | fold -s -w ${maxwidth}
             dbg "$(echo -en ${input})"
         else
@@ -440,7 +440,7 @@ gitCloneAndPull() {
         fi
 
         # Check that it is correct repository
-        cd ${localWorkDir}/git/${repository}
+        cd ${localWorkDir}/git/${repository} || errorExit "Could not cd to ${localWorkDir}/git/${repository}"
         local checkedOutrepository=$(git remote -v | grep fetch | awk '{print $2}')
         if ! echo ${checkedOutrepository} | grep -q "${repository}"; then
             errorExit "Wrong repository: ${localWorkDir}/git/${repository}"
@@ -458,7 +458,7 @@ gitCloneAndPull() {
 
     else
         # Local repository does not exists, trying to clone
-        cd ${localWorkDir}/git/
+        cd ${localWorkDir}/git/ || errorExit "Could not cd to ${localWorkDir}/git/"
         dbg "URL to use for git clone:  ${gitRemoteRepo}"
         foldIt "-n" "Git clone ${repository} to ${localWorkDir}/git/ "
         if git clone -q ${gitRemoteRepo}; then
@@ -469,7 +469,7 @@ gitCloneAndPull() {
         fi
     fi
 
-    cd ${localWorkDir}/git/${repository}
+    cd ${localWorkDir}/git/${repository} || errorExit "Could not cd to ${localWorkDir}/git/${repository}"
 
     # Save current branch, if not set already
     if [ -z "${startBranch}" ]; then
@@ -498,7 +498,7 @@ gitCloneAndPull() {
         failed "Could not checkout branch ${startBranch}"
     fi
 
-    cd ${myStartDirectory}
+    cd ${myStartDirectory} || errorExit "Could not cd to ${myStartDirectory}"
 
     dbg "${FUNCNAME}() leaving function"
 }
