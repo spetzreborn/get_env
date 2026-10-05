@@ -287,7 +287,6 @@ report() {
     local i=0
     local args=${#}
     local awn=""
-    local doReport=""
     if [ -n "${offline}" ]; then
         dbg "\${offline} is set, don't report"
         return 0
@@ -299,33 +298,31 @@ report() {
             shift
             ((i++))
         done
-        # TODO: Refactor to not use eval
-        doReport='wget "${reportUrl}" -q -O /dev/null --post-data "
-date=$(date +"${dateFormat}")&
-hostname=${HOSTNAME}&
-user=${USER}&
-get_envGitServer=${get_envGitServer}&
-get_envGitUser=${get_envGitUser}&
-get_envRepository=${get_envRepository}&
-get_envBranch=${get_envBranch}&
-gitServer=${gitServer}&
-gitUser=${gitUser}&
-repository=${repository}&
-branch=${branch}&
-quietMode=${quietMode}&
-dryrun=${dryrun}&
-debug=${debug}&
-debugLog=${debugLog}&
-noGet_envUpdate=${noGet_envUpdate}&
-myName=${myName}&
-localWorkDir=${localWorkDir}&
-newFiles=${newFiles}&
-updatedFiles=${updatedFiles}
-createdDirs=${createdDirs}&
-${awn}"'
+        local postData="date=$(date +"${dateFormat}")&"
+        postData+="hostname=${HOSTNAME}&"
+        postData+="user=${USER}&"
+        postData+="get_envGitServer=${get_envGitServer}&"
+        postData+="get_envGitUser=${get_envGitUser}&"
+        postData+="get_envRepository=${get_envRepository}&"
+        postData+="get_envBranch=${get_envBranch}&"
+        postData+="gitServer=${gitServer}&"
+        postData+="gitUser=${gitUser}&"
+        postData+="repository=${repository}&"
+        postData+="branch=${branch}&"
+        postData+="quietMode=${quietMode}&"
+        postData+="dryrun=${dryrun}&"
+        postData+="debug=${debug}&"
+        postData+="debugLog=${debugLog}&"
+        postData+="noGet_envUpdate=${noGet_envUpdate}&"
+        postData+="myName=${myName}&"
+        postData+="localWorkDir=${localWorkDir}&"
+        postData+="newFiles=${newFiles}&"
+        postData+="updatedFiles=${updatedFiles}&"
+        postData+="createdDirs=${createdDirs}&"
+        postData+="${awn}"
 
         foldIt "-n" "Reporting to web server"
-        if eval ${doReport}; then
+        if wget "${reportUrl}" -q -O /dev/null --post-data "${postData}"; then
             ok
             dbg "Reported to web server"
         else
