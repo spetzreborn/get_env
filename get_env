@@ -241,7 +241,7 @@ ncfailed() {
         echo -e "${warning}[FAILED]${end}"
     fi
     if [ -n "${1}" ]; then
-        foldIt "-e" "INFO: ${@}"
+        foldIt "-e" "INFO: ${*}"
     fi
 }
 
@@ -729,9 +729,9 @@ showVariablesHostConfig() {
     dbg "\${dirsToCreate}: ${dirsToCreate}"
     # Call dbg() for all values in array ${files2copy}
     local i=0
-    local array=""
-    for array in "${files2copy[@]}"; do
-        dbg "\${files2copy[${i}]}: ${array}"
+    local fileEntry=""
+    for fileEntry in "${files2copy[@]}"; do
+        dbg "\${files2copy[${i}]}: ${fileEntry}"
         ((i++))
     done
     dbg "${FUNCNAME}() leaving function"
