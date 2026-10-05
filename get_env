@@ -103,6 +103,9 @@ reportUrl=""
 startBranch=""
 dateFormat='%Y-%m-%d %H:%M:%S'
 ddate=$(date +"${dateFormat}")
+# Filesystem-safe timestamp, used to group backups made during this run under one directory.
+backupDateFormat='%Y-%m-%dT%H-%M-%S'
+backupTimestamp=$(date +"${backupDateFormat}")
 
 ###  Functions
 
@@ -526,24 +529,22 @@ copyFiles() {
             # .. diff it with the source file
             if ! diff -q "${localWorkDir}/${repository}/${repository}-${branch}/${fromDir}/${file}" "${toDir}/${file}" >/dev/null 2>&1; then
                 if [ -z "${dryrun}" ]; then
-                    # .. And if it is not the same, copy to backup file:
-                    # TODO: gzip backup? Number of backups? Better structure?
-                    createDir "${localWorkDir}/backup"
+                    # .. And if it is not the same, copy to backup file. Backups from the same
+                    # run are grouped under one timestamp directory and mirror ${toDir}, so
+                    # same-named files from different directories can't collide or overwrite
+                    # each other, and the original filename (dotfile or not) is kept intact.
+                    # TODO: gzip backup? Number of backups?
+                    local backupFile="${localWorkDir}/backup/${backupTimestamp}${toDir}/${file}"
+                    createDir "${backupFile%/*}"
                     foldIt "-n" "Found difference in ${toDir}/${file}, making backup"
-                    if [ $(echo ${file} | cut -c1) == "." ]; then
-                        if cp ${toDir}/${file} ${localWorkDir}/backup/dot${file}."${ddate}"; then
-                            ok
-                            dbg "Backed up: ${localWorkDir}/backup/${file}.${ddate}"
-                        else
-                            ncfailed
-                        fi
+                    if cp "${toDir}/${file}" "${backupFile}"; then
+                        ok
+                        dbg "Backed up: ${backupFile}"
+                        # Visible (non-hidden) index of every file backed up this run, so
+                        # dotfiles aren't missed when just browsing with plain "ls".
+                        echo "${toDir}/${file}" >>"${localWorkDir}/backup/${backupTimestamp}/index"
                     else
-                        if cp "${toDir}/${file}" "${localWorkDir}/backup/${file}.${ddate}"; then
-                            ok
-                            dbg "Backed up: ${localWorkDir}/backup/${file}.${ddate}"
-                        else
-                            ncfailed
-                        fi
+                        ncfailed
                     fi
                 fi
                 # .. Copy the new file
