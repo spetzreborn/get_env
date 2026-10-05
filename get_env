@@ -537,7 +537,7 @@ copyFiles() {
                     local backupFile="${localWorkDir}/backup/${backupTimestamp}${toDir}/${file}"
                     createDir "${backupFile%/*}"
                     foldIt "-n" "Found difference in ${toDir}/${file}, making backup"
-                    if cp "${toDir}/${file}" "${backupFile}"; then
+                    if cp -p "${toDir}/${file}" "${backupFile}"; then
                         ok
                         dbg "Backed up: ${backupFile}"
                         # Visible (non-hidden) index of every file backed up this run, so
