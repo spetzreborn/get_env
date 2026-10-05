@@ -248,11 +248,11 @@ ncfailed() {
 # Reverse array. Take arguments in: "arrayname"
 reverseArray() {
     local -n array=${1:?Array name required}
-    local revarray="" e
+    local revarray=() e=""
     for e in "${array[@]}"; do
         revarray=("${e}" "${revarray[@]}")
     done
-    array=(${revarray[@]})
+    array=("${revarray[@]}")
 }
 
 # Debug function
