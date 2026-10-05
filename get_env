@@ -29,7 +29,7 @@ depends() {
     done
 }
 
-depends awk cat cp diff egrep fold grep host logger mkdir rm rsync sed tac tput unzip wget
+depends awk cat cp diff egrep find fold grep host logger mkdir rm rsync sed tac tput unzip wget
 
 # Verify vi have needed version of BASH to be able to continue.
 dependBashVersion() {
@@ -103,6 +103,9 @@ reportUrl=""
 startBranch=""
 dateFormat='%Y-%m-%d %H:%M:%S'
 ddate=$(date +"${dateFormat}")
+# Filesystem-safe timestamp, used to group backups made during this run under one directory.
+backupDateFormat='%Y-%m-%dT%H-%M-%S'
+backupTimestamp=$(date +"${backupDateFormat}")
 
 ###  Functions
 
@@ -526,24 +529,22 @@ copyFiles() {
             # .. diff it with the source file
             if ! diff -q "${localWorkDir}/${repository}/${repository}-${branch}/${fromDir}/${file}" "${toDir}/${file}" >/dev/null 2>&1; then
                 if [ -z "${dryrun}" ]; then
-                    # .. And if it is not the same, copy to backup file:
-                    # TODO: gzip backup? Number of backups? Better structure?
-                    createDir "${localWorkDir}/backup"
+                    # .. And if it is not the same, copy to backup file. Backups from the same
+                    # run are grouped under one timestamp directory and mirror ${toDir}, so
+                    # same-named files from different directories can't collide or overwrite
+                    # each other, and the original filename (dotfile or not) is kept intact.
+                    # TODO: gzip backup? Number of backups?
+                    local backupFile="${localWorkDir}/backup/${backupTimestamp}${toDir}/${file}"
+                    createDir "${backupFile%/*}"
                     foldIt "-n" "Found difference in ${toDir}/${file}, making backup"
-                    if [ $(echo ${file} | cut -c1) == "." ]; then
-                        if cp ${toDir}/${file} ${localWorkDir}/backup/dot${file}."${ddate}"; then
-                            ok
-                            dbg "Backed up: ${localWorkDir}/backup/${file}.${ddate}"
-                        else
-                            ncfailed
-                        fi
+                    if cp -p "${toDir}/${file}" "${backupFile}"; then
+                        ok
+                        dbg "Backed up: ${backupFile}"
+                        # Visible (non-hidden) index of every file backed up this run, so
+                        # dotfiles aren't missed when just browsing with plain "ls".
+                        echo "${toDir}/${file}" >>"${localWorkDir}/backup/${backupTimestamp}/index"
                     else
-                        if cp "${toDir}/${file}" "${localWorkDir}/backup/${file}.${ddate}"; then
-                            ok
-                            dbg "Backed up: ${localWorkDir}/backup/${file}.${ddate}"
-                        else
-                            ncfailed
-                        fi
+                        ncfailed
                     fi
                 fi
                 # .. Copy the new file
@@ -612,6 +613,10 @@ pathToRepository=${pathToRepository:-"none"}
 
 # Path to local repository
 localWorkDir=${localWorkDir}
+
+# Number of backup runs (see localWorkDir/backup/) to keep, oldest removed first.
+# Empty, by default, means backups are never rotated away.
+backupKeepRuns=${backupKeepRuns:-""}
 
 # If set, report status to this address. (Uses report.php from github.com/spetzreborn/get_env)
 reportUrl=\"\"
@@ -764,6 +769,7 @@ validateConfig() {
             -e "^sshPort=([A-Za-z0-9/_~. \"]+)?$" \
             -e "^pathToRepository=([A-Za-z0-9/_~. \"]+)?$" \
             -e "^localWorkDir=[A-Za-z0-9/_~. \"]+$" \
+            -e "^backupKeepRuns=([0-9]+)?$" \
             -e "^reportUrl=[A-Za-z0-9/_~. :\"]*$" \
             "${confFile}")
         ;;
@@ -859,6 +865,53 @@ syncFiles() {
     dbg "${FUNCNAME}() leaving function"
 }
 
+# Removes the oldest backup run directories (see copyFiles()) beyond ${backupKeepRuns}.
+# Disabled (keeps everything, forever) unless backupKeepRuns is set in confFile, since
+# it defaults to empty.
+rotateBackups() {
+    dbg "${FUNCNAME}() was called, arg: ${*}"
+    if [ -z "${backupKeepRuns:-}" ]; then
+        dbg "\${backupKeepRuns} not set, not rotating backups"
+        return 0
+    fi
+    if [ -z "${localWorkDir:-}" ]; then
+        dbg "\${localWorkDir} not set, not rotating backups"
+        return 0
+    fi
+    local backupDir="${localWorkDir}/backup"
+    if [ ! -d "${backupDir}" ]; then
+        dbg "${backupDir} does not exist, nothing to rotate"
+        return 0
+    fi
+
+    # Run directories are named after a sortable timestamp (see ${backupTimestamp}),
+    # so oldest-to-newest is a plain sort.
+    local runs=()
+    local run=""
+    while IFS= read -r run; do
+        runs+=("${run}")
+    done < <(find "${backupDir}" -mindepth 1 -maxdepth 1 -type d -printf '%f\n' | sort)
+
+    local numberOfRuns=${#runs[@]}
+    if [ "${numberOfRuns}" -le "${backupKeepRuns}" ]; then
+        dbg "${numberOfRuns} backup run(s), \${backupKeepRuns} is ${backupKeepRuns}, nothing to rotate"
+        return 0
+    fi
+
+    local numberToRemove=$((numberOfRuns - backupKeepRuns))
+    local i=0
+    for ((i = 0; i < numberToRemove; i++)); do
+        foldIt "-n" "Removing old backup run ${backupDir}/${runs[${i}]}"
+        if rm -r "${backupDir:?}/${runs[${i}]}"; then
+            ok
+            dbg "Removed old backup run: ${backupDir}/${runs[${i}]}"
+        else
+            ncfailed
+        fi
+    done
+    dbg "${FUNCNAME}() leaving function"
+}
+
 # TODO: Call cleanup() by trap? trap cleanup EXIT
 # shellcheck disable=SC2120 # Arguments are optional and not used.
 cleanup() {
@@ -867,6 +920,9 @@ cleanup() {
     if [ -d "${downloadDir}" ]; then
         dbg "Deleting ${downloadDir}"
         rm -r "${downloadDir}"
+    fi
+    if [ -n "${localWorkDir:-}" ] && [ -z "${dryrun}" ]; then
+        rotateBackups
     fi
     dbg "${FUNCNAME}() leaving function"
 }
@@ -932,8 +988,21 @@ fi
 
 # If argument -r was not given, set default ${localWorkDir} to absolute path
 if [ -z "${localWorkDir:-""}" ]; then
-    localWorkDir="$HOME/.${myName})"
+    localWorkDir="$HOME/.${myName}"
     dbg 'Setting defult ${localWorkDir} to absolute path: ' "${localWorkDir}"
+fi
+
+# If confFile already exists, pre-load its values (once validated as safe) so that
+# generateConfFile() below falls back to what's already configured instead of its
+# hardcoded defaults - both when just counting variables and when writing a
+# ${confFile}.new for a version bump. ${localWorkDir} is deliberately restored
+# afterwards: it must stay whatever -r or the default above already set it to,
+# not whatever an older confFile has stored.
+if [ -f "${confFile}" ] && [ -r "${confFile}" ]; then
+    validateConfig "get_env" "${confFile}"
+    preLoadLocalWorkDir="${localWorkDir}"
+    . "${confFile}"
+    localWorkDir="${preLoadLocalWorkDir}"
 fi
 
 # generateConfFile() must be run before attempting to compare confFiles, but after ${localWorkDir} is set.
