@@ -911,7 +911,6 @@ rotateBackups() {
     dbg "${FUNCNAME}() leaving function"
 }
 
-# TODO: Call cleanup() by trap? trap cleanup EXIT
 # shellcheck disable=SC2120 # Arguments are optional and not used.
 cleanup() {
     # Remove downloaded files and temporary directories
@@ -927,6 +926,12 @@ cleanup() {
 }
 
 ### End of functions
+
+# Always cleanup() on exit, including early exits (eg. helpMenu()) and interrupts
+# (Ctrl+C), not just the explicit calls already in place for clarity elsewhere.
+# Note: this does NOT fire across exec, so the explicit cleanup() calls right
+# before get_envDiffAndRestart()'s "exec ~/${myName} ..." remain necessary.
+trap cleanup EXIT
 
 # Make tput work in screen
 if [ "${TERM}" = "screen" ]; then
