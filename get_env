@@ -1117,6 +1117,7 @@ if [ -f "${allHostConf}" ]; then
     ignoreAllHostConf=$(echo ${ignoreHosts:-""} | grep ${HOSTNAME})
     if [ -z "${ignoreAllHostConf}" ]; then
         dbg "${HOSTNAME} not in manifest ignorelist."
+        # dirsToCreate is a space-separated list, not an array - needs splitting here.
         for dir in ${dirsToCreate}; do
             createDir ${dir}
         done
@@ -1144,10 +1145,12 @@ if [ -f "${hostConf}" ]; then
     # Source host specific conf and run actions.
     . "${hostConf}"
     showVariablesHostConfig "specific HostConf"
+    # dirsToCreate is a space-separated list, not an array - needs splitting here.
     for dir in ${dirsToCreate}; do
         createDir ${dir}
     done
     for array in "${files2copy[@]}"; do
+        # shellcheck disable=SC2086 # This function need globbing.
         copyFiles ${array}
     done
 fi
@@ -1157,6 +1160,7 @@ dbg "\${newFiles}: ${newFiles}"
 dbg "\${updatedFiles}: ${updatedFiles}"
 
 # Special things for new or updated files:
+# newFiles/updatedFiles are space-separated lists, not arrays - needs splitting here.
 for file in ${newFiles} ${updatedFiles}; do
     case ${file} in
     .bashrc*)
