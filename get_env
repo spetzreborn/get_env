@@ -29,7 +29,7 @@ depends() {
     done
 }
 
-depends awk cat cp diff find fold grep logger mkdir mv rm sed tput unzip
+depends awk cat cp diff find fold grep gzip head logger mkdir mv rm sed tar tput
 
 # Use curl or wget for downloads, whichever is installed.
 if command -v curl >/dev/null; then
@@ -410,16 +410,17 @@ httpPost() {
     fi
 }
 
-# Arg: server user repository branch filePath
-downloadAndUnzip() {
+# Download a branch from github as tar.gz and extract it to ${localWorkDir}.
+# Arg: server user repository branch
+downloadAndExtract() {
     dbg "${FUNCNAME}() was called, arg: ${*}"
     local server=${1}
     local user=${2}
     local repository=${3}
     local branch=${4}
-    local inFile="https://${server}/${user}/${repository}/archive/${branch}.zip"
+    local inFile="https://${server}/${user}/${repository}/archive/${branch}.tar.gz"
     local outDir="${downloadDir}/${repository}"
-    local outFile="${repository}-${branch}.zip"
+    local outFile="${repository}-${branch}.tar.gz"
     createDir -f -q "${downloadDir}/${repository}"
     foldIt "-n" "Downloading ${inFile}"
 
@@ -430,28 +431,19 @@ downloadAndUnzip() {
     else
         failed "Could not download ${inFile}, no internet connection?"
     fi
-    foldIt "-n" "Unzipping ${outFile}"
-    # Unzip
-    if [ -z "${debug}" ]; then
-        if unzip -o -qq "${outDir}/${outFile}" -d "${outDir}"; then
-            ok
-            dbg "Unzipped file"
-        else
-            failed "Failed to unzip"
-        fi
+    foldIt "-n" "Extracting ${outFile}"
+    # Extract, verbose if debug
+    if tar -x -z ${debug:+-v} -f "${outDir}/${outFile}" -C "${outDir}"; then
+        ok
+        dbg "Extracted file"
     else
-        if unzip -o "${outDir}/${outFile}" -d "${outDir}"; then
-            ok
-            dbg "Unzipped file"
-        else
-            failed "Failed to unzip"
-        fi
+        failed "Failed to extract ${outFile}"
     fi
     foldIt "-n" "Moving files to ${localWorkDir}"
     syncFiles "${outDir}/${repository}-${branch}" "${localWorkDir}/${repository}/${repository}-${branch}"
-    # GitHub puts the commit id as comment in the zip file.
+    # GitHub puts the commit id as "comment=<id>" in the first (pax) header of the tar file.
     local revision
-    revision=$(unzip -z "${outDir}/${outFile}" 2>/dev/null | tail -n 1)
+    revision=$(gzip -d -c "${outDir}/${outFile}" 2>/dev/null | head -c 1024 | grep -a -o 'comment=[0-9a-f]*' | cut -d= -f2)
     if ! [[ "${revision}" =~ ^[0-9a-f]{40}$ ]]; then
         dbg "No commit id in ${outFile}"
         revision="unknown"
@@ -1309,9 +1301,9 @@ createDir -f "${localWorkDir}"
 # Download latest get_env and repository as zip from github
 if [ -z "${offline}" ]; then
     bar
-    downloadAndUnzip "${get_envGitServer}" "${get_envGitUser}" "${get_envRepository}" "${get_envBranch}"
+    downloadAndExtract "${get_envGitServer}" "${get_envGitUser}" "${get_envRepository}" "${get_envBranch}"
 else
-    dbg "\${offline} is set \"${offline}\", don't call downloadAndUnzip()"
+    dbg "\${offline} is set \"${offline}\", don't call downloadAndExtract()"
 fi
 
 # Check if downloaded get_env is newer, then replace and restart
@@ -1326,12 +1318,12 @@ fi
 if [ -z "${offline}" ]; then
     bar
     if [ "${gitServer}" = "github.com" ]; then
-        downloadAndUnzip "${gitServer}" "${gitUser}" "${repository}" "${branch}"
+        downloadAndExtract "${gitServer}" "${gitUser}" "${repository}" "${branch}"
     else
         gitCloneAndPull "${gitServer}" "${gitUser}" "${repository}" "${branch}" "${sshPort}"
     fi
 else
-    dbg "\${offline} is set \"${offline}\", don't call downloadAndUnzip() or gitCloneAndPull()"
+    dbg "\${offline} is set \"${offline}\", don't call downloadAndExtract() or gitCloneAndPull()"
     # Offline: use the local clone if there is one, so the wanted branch is used.
     if [ "${gitServer}" != "github.com" ] && [ -d "${localWorkDir}/git/${repository}/.git" ]; then
         bar
