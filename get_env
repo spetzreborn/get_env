@@ -673,30 +673,30 @@ generateConfFile() {
     dbg "${FUNCNAME}() was called, arg: ${*}"
     confFileContent="\
 # Where to download new get_env from (should be a github repository)
-get_envGitServer=${get_envGitServer:-"github.com"}
+get_envGitServer=\"${get_envGitServer:-"github.com"}\"
 # github user
-get_envGitUser=${get_envGitUser:-"spetzreborn"}
+get_envGitUser=\"${get_envGitUser:-"spetzreborn"}\"
 # github repository
-get_envRepository=${get_envRepository:-"get_env"}
+get_envRepository=\"${get_envRepository:-"get_env"}\"
 # Branch from witch get_env is downloaded from. master or trunk
-get_envBranch=${get_envBranch:-"master"}
+get_envBranch=\"${get_envBranch:-"master"}\"
 
 # Where to download environment from.
-gitServer=${gitServer:-"github.com"}
+gitServer=\"${gitServer:-"github.com"}\"
 # git user
-gitUser=${gitUser:-"spetzreborn"}
+gitUser=\"${gitUser:-"spetzreborn"}\"
 # git repository
-repository=${repository:-"dotfiles"}
+repository=\"${repository:-"dotfiles"}\"
 # Branch from witch environment is downloaded from. master or trunk
-branch=${branch:-"master"}
+branch=\"${branch:-"master"}\"
 
 # If not using github as repository you may need to set these settings:
 # 'git clone ssh://gitUser@gitServer:sshPort/pathToRepository/repository'
 sshPort=${sshPort:-"22"}
-pathToRepository=${pathToRepository:-"none"}
+pathToRepository=\"${pathToRepository:-"none"}\"
 
 # Path to local repository
-localWorkDir=${localWorkDir}
+localWorkDir=\"${localWorkDir}\"
 
 # Number of backup runs (see localWorkDir/backup/) to keep, oldest removed first.
 # Empty, by default, means backups are never rotated away.
@@ -707,14 +707,6 @@ reportUrl=\"\"
 "
 
     confFileVariableNames=$(echo "${confFileContent}" | egrep -o '^[A-Za-z_][A-Za-z0-9_]*=')
-    dbg "${FUNCNAME}() leaving function"
-}
-
-# Change the values in ${confFile}
-# Arg: variable value
-changeConfFile() {
-    dbg "${FUNCNAME}() was called, arg: ${*}"
-    sed -i "s/\(${1} *= *\).*/\1${2}/" "${confFile}"
     dbg "${FUNCNAME}() leaving function"
 }
 
@@ -838,9 +830,18 @@ validateConfig() {
     local confType=${1}
     local confFile=${2}
     local badContent=""
-    local validateString=""
     # egrep exits 1 when every line is valid and 2 on error (e.g. a bad pattern).
     local grepStatus=0
+    # Both files are sourced, so the whole line must match. A value is either quoted
+    # (may contain spaces) or unquoted without spaces, since an unquoted space would
+    # run the rest of the line as a command. Arg: allowed characters, without space
+    # and "-" ("-" must be last in a bracket expression, or it is read as a range).
+    confValue() { echo "('[${1} -]*'|\"[${1} -]*\"|[${1}-]*)( +#.*)?"; }
+    local name="A-Za-z0-9._"
+    local path="A-Za-z0-9/_~.\$"
+    local number="(\"[0-9]*\"|'[0-9]*'|[0-9]*)"
+    # "?", "=" and "&" only when quoted, an unquoted "&" runs the rest in background.
+    local url="(\"[A-Za-z0-9/_~.:?=&%-]*\"|'[A-Za-z0-9/_~.:?=&%-]*'|[A-Za-z0-9/_~.:%-]*)"
     dbg "confType = ${confType}"
     case "${confType}" in
     "get_env")
@@ -848,37 +849,30 @@ validateConfig() {
         badContent=$(egrep -v \
             -e "^#" \
             -e "^$" \
-            -e "^get_envGitServer=[A-Za-z0-9/_~. \"-]+$" \
-            -e "^get_envGitUser=[A-Za-z0-9/_~. \"-]+$" \
-            -e "^get_envRepository=[A-Za-z0-9/_~. \"]+$" \
-            -e "^get_envBranch=[A-Za-z0-9/_~. \"]+$" \
-            -e "^get_envBranch=[A-Za-z0-9/_~. \"]+$" \
-            -e "^gitServer=[A-Za-z0-9/_~. \"-]+$" \
-            -e "^gitUser=[A-Za-z0-9/_~. \"-]+$" \
-            -e "^repository=[A-Za-z0-9/_~. \"]+$" \
-            -e "^branch=[A-Za-z0-9/_~. \"]+$" \
-            -e "^sshPort=([A-Za-z0-9/_~. \"]+)?$" \
-            -e "^pathToRepository=([A-Za-z0-9/_~. \"]+)?$" \
-            -e "^localWorkDir=[A-Za-z0-9/_~. \"]+$" \
-            -e "^backupKeepRuns=([0-9]+)?$" \
-            -e "^reportUrl=[A-Za-z0-9/_~. :\"]*$" \
+            -e "^get_envGitServer=$(confValue "${name}")$" \
+            -e "^get_envGitUser=$(confValue "${name}")$" \
+            -e "^get_envRepository=$(confValue "${name}")$" \
+            -e "^get_envBranch=$(confValue "${path}")$" \
+            -e "^gitServer=$(confValue "${name}")$" \
+            -e "^gitUser=$(confValue "${name}")$" \
+            -e "^repository=$(confValue "${name}")$" \
+            -e "^branch=$(confValue "${path}")$" \
+            -e "^sshPort=${number}$" \
+            -e "^pathToRepository=$(confValue "${path}")$" \
+            -e "^localWorkDir=$(confValue "${path}")$" \
+            -e "^backupKeepRuns=${number}$" \
+            -e "^reportUrl=${url}$" \
             "${confFile}") || grepStatus=$?
         ;;
     "manifest")
         dbg "Validate type: manifest"
-        # The manifest is sourced, so the whole line must match. A value is either
-        # quoted (may contain spaces) or unquoted without spaces, since an unquoted
-        # space would run the rest of the line as a command.
-        local chars="A-Za-z0-9/_~.\$"
-        # "-" must be last in a bracket expression, or it is read as a range.
-        local value="('[${chars} -]*'|\"[${chars} -]*\"|[${chars}-]*)( +#.*)?"
         badContent=$(egrep -v \
             -e "^#" \
             -e "^$" \
-            -e "^dirsToCreate=${value}$" \
-            -e "^files2copy[[][0-9]+[]]=${value}$" \
-            -e "^files2link[[][0-9]+[]]=${value}$" \
-            -e "^ignoreHosts=${value}$" \
+            -e "^dirsToCreate=$(confValue "${path}")$" \
+            -e "^files2copy[[][0-9]+[]]=$(confValue "${path}")$" \
+            -e "^files2link[[][0-9]+[]]=$(confValue "${path}")$" \
+            -e "^ignoreHosts=$(confValue "${path}")$" \
             "${confFile}") || grepStatus=$?
         ;;
     *)
@@ -1097,6 +1091,11 @@ fi
 if [ -z "${localWorkDir:-""}" ]; then
     localWorkDir="$HOME/.${myName}"
     dbg 'Setting defult ${localWorkDir} to absolute path: ' "${localWorkDir}"
+fi
+# ${localWorkDir} is written to confFile, which is sourced, so only allow safe characters.
+safePath='^[A-Za-z0-9/_~. -]+$'
+if ! [[ "${localWorkDir}" =~ ${safePath} ]]; then
+    errorExit "Invalid characters in path: ${localWorkDir}"
 fi
 
 # If confFile already exists, pre-load its values (once validated as safe) so that
