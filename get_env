@@ -105,6 +105,9 @@ quietMode=""
 reportUrl=""
 startBranch=""
 dateFormat='%Y-%m-%d %H:%M:%S'
+# A comment line with this keyword in a copied file is replaced with a header saying
+# the file is handled by get_env. Fixed, so the same repository works with a renamed get_env.
+headerKeyword="%%GET_ENV%%"
 ddate=$(date +"${dateFormat}")
 # Filesystem-safe timestamp, used to group backups made during this run under one directory.
 backupDateFormat='%Y-%m-%dT%H-%M-%S'
@@ -418,6 +421,14 @@ downloadAndUnzip() {
     fi
     foldIt "-n" "Moving files to ${localWorkDir}"
     syncFiles "${outDir}/${repository}-${branch}" "${localWorkDir}/${repository}/"
+    # GitHub puts the commit id as comment in the zip file.
+    local revision
+    revision=$(unzip -z "${outDir}/${outFile}" 2>/dev/null | tail -n 1)
+    if ! [[ "${revision}" =~ ^[0-9a-f]{40}$ ]]; then
+        dbg "No commit id in ${outFile}"
+        revision="unknown"
+    fi
+    saveRevision "${repository}" "${branch}" "${revision}"
     dbg "${FUNCNAME}() leaving function"
 }
 
@@ -514,6 +525,7 @@ gitCheckoutAndSync() {
     foldIt "-n" "Moving files to ${localWorkDir}"
     createDir -f "${localWorkDir}/${repository}/${repository}-${branch}"
     syncFiles "${localWorkDir}/git/${repository}/" "${localWorkDir}/${repository}/${repository}-${branch}"
+    saveRevision "${repository}" "${branch}" "$(git rev-parse HEAD)"
 
     # Restore staring branch
     foldIt "-n" "Restoring original branch ${startBranch}"
@@ -552,6 +564,65 @@ backupFile() {
     dbg "${FUNCNAME}() leaving function"
 }
 
+# Save the revision a repository branch was synced from, used in file headers.
+# Arg: repository branch revision
+saveRevision() {
+    dbg "${FUNCNAME}() was called, arg: ${*}"
+    createDir -q -f "${localWorkDir}/revisions"
+    echo "${3}" >"${localWorkDir}/revisions/${1}-${2}"
+    dbg "${FUNCNAME}() leaving function"
+}
+
+# Print ${infile} to stdout. The first comment line with ${headerKeyword} is replaced
+# with a header, keeping the indentation and comment characters before (and after,
+# e.g. "-->") it:
+#   # %%GET_ENV%%      " %%GET_ENV%%      <!-- %%GET_ENV%% -->
+# Every header line contains the keyword, so "diff -I" can ignore the header.
+# Arg: infile path_in_repo
+catWithHeader() {
+    dbg "${FUNCNAME}() was called, arg: ${*}"
+    local infile=${1}
+    local relPath=${2}
+    # Comment characters are punctuation only, so code like kw="%%GET_ENV%%" is not a match.
+    local headerLine="^([[:space:]]*)([^[:alnum:][:space:]]+)[[:space:]]*${headerKeyword}[[:space:]]*([^[:alnum:][:space:]]*)[[:space:]]*$"
+    local lineNumber=""
+    local line=""
+    local indent=""
+    local commentStart=""
+    local commentEnd=""
+    local revision="unknown"
+    local text=""
+
+    # -I skips binary files
+    lineNumber=$(grep -n -m 1 -I -E "${headerLine}" "${infile}" | cut -d: -f1)
+    if [ -z "${lineNumber}" ]; then
+        dbg "No header line in ${infile}"
+        cat "${infile}"
+        return
+    fi
+    line=$(sed -n "${lineNumber}p" "${infile}")
+    [[ "${line}" =~ ${headerLine} ]]
+    indent=${BASH_REMATCH[1]}
+    commentStart=${BASH_REMATCH[2]}
+    commentEnd=${BASH_REMATCH[3]:+ ${BASH_REMATCH[3]}}
+    if [ -r "${localWorkDir}/revisions/${repository}-${branch}" ]; then
+        revision=$(cut -c 1-7 "${localWorkDir}/revisions/${repository}-${branch}")
+    fi
+
+    head -n $((lineNumber - 1)) "${infile}"
+    for text in \
+        "" \
+        " This file is handled by ${myName}. Local changes will be lost." \
+        " Source: ${repository} (branch ${branch}): ${relPath#./}" \
+        " Put on disk: $(date +"${dateFormat}") by ${myName} on ${HOSTNAME}" \
+        " git revision: ${revision}" \
+        ""; do
+        echo "${indent}${commentStart} ${headerKeyword}${text}${commentEnd}"
+    done
+    tail -n +$((lineNumber + 1)) "${infile}"
+    dbg "${FUNCNAME}() leaving function"
+}
+
 # Files that shall be copied
 # Arg: dir_in_repo dir_to_be_moved_to _files_
 copyFiles() {
@@ -561,19 +632,37 @@ copyFiles() {
     local toDir=${1}
     shift
     local file=""
+    local sourceFile=""
+    local copyFrom=""
+    local withHeader=""
     # Test if ${toDir} exists
     createDir "${toDir}"
 
     for file in "$@"; do
+        sourceFile="${localWorkDir}/${repository}/${repository}-${branch}/${fromDir}/${file}"
         # Test if the source file exists
-        if [ ! -f "${localWorkDir}/${repository}/${repository}-${branch}/${fromDir}/${file}" ]; then
+        if [ ! -f "${sourceFile}" ]; then
             foldIt "-n" "Checking for file ${file}"
-            failed "File does not exists: ${localWorkDir}/${repository}/${repository}-${branch}/${fromDir}/${file}"
+            failed "File does not exists: ${sourceFile}"
+        fi
+        # Files with ${headerKeyword} get a header. Build it in a temporary copy (cp -p
+        # keeps the mode), and ignore the header lines when comparing, since the
+        # header has a timestamp that differs every run.
+        copyFrom="${sourceFile}"
+        withHeader=""
+        if grep -q -I -F "${headerKeyword}" "${sourceFile}"; then
+            withHeader="yes"
+            copyFrom=$(mktemp "${downloadDir}/header.XXXXXX")
+            cp -p "${sourceFile}" "${copyFrom}"
+            catWithHeader "${sourceFile}" "${fromDir}/${file}" >"${copyFrom}"
         fi
         # If the destination file exist ...
         if [ -f "${toDir}/${file}" ]; then
             # .. diff it with the source file
-            if ! diff -q "${localWorkDir}/${repository}/${repository}-${branch}/${fromDir}/${file}" "${toDir}/${file}" >/dev/null 2>&1; then
+            # A header added to an already deployed file is only header lines, which
+            # "diff -I" ignores, so also update if the deployed file lacks the header.
+            if ! diff -q ${withHeader:+-I "${headerKeyword}"} "${copyFrom}" "${toDir}/${file}" >/dev/null 2>&1 ||
+                { [ -n "${withHeader}" ] && ! grep -q -F "${headerKeyword}" "${toDir}/${file}"; }; then
                 if [ -z "${dryrun}" ]; then
                     # .. And if it is not the same, copy to backup file.
                     foldIt "-n" "Found difference in ${toDir}/${file}, making backup"
@@ -585,12 +674,12 @@ copyFiles() {
                     dryRun
                     dryrunUpdatedFiles="${dryrunUpdatedFiles}${file} "
                 else
-                    if cp "${localWorkDir}/${repository}/${repository}-${branch}/${fromDir}/${file}" "${toDir}/${file}"; then
+                    if cp "${copyFrom}" "${toDir}/${file}"; then
                         ok
                         dbg "Updated file: ${toDir}/${file} copied ok"
                         updatedFiles="${updatedFiles}${file} "
                     else
-                        failed "Could not copy ${localWorkDir}/${repository}/${repository}-${branch}/${fromDir}/${file} to ${toDir}/${file}"
+                        failed "Could not copy ${sourceFile} to ${toDir}/${file}"
                     fi
                 fi
             else
@@ -603,12 +692,12 @@ copyFiles() {
                 dryRun
                 dryrunNewFiles="${dryrunNewFiles}${file} "
             else
-                if cp "${localWorkDir}/${repository}/${repository}-${branch}/${fromDir}/${file}" "${toDir}/${file}" >/dev/null 2>&1; then
+                if cp "${copyFrom}" "${toDir}/${file}" >/dev/null 2>&1; then
                     ok
                     dbg "New file: ${toDir}/${file} copied ok"
                     newFiles="${newFiles}${file} "
                 else
-                    failed "Could not copy ${localWorkDir}/${repository}/${repository}-${branch}/${fromDir}/${file} to ${toDir}/${file}"
+                    failed "Could not copy ${sourceFile} to ${toDir}/${file}"
                 fi
             fi
         fi

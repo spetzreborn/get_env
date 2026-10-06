@@ -35,3 +35,27 @@ are kept up to date on every run. A regular file in the way is backed up before 
 replaced by a link. Don't edit linked files in place, the next run overwrites them.
 Links that are removed from the manifest are not removed. Use `files2copy` for
 dotfiles like `.bashrc`, changes in linked files are not detected.
+
+### Header in copied files
+Put a comment line with `%%GET_ENV%%` in a file in the repository, and it is replaced
+with a header when the file is copied, so you can see that it is handled by get_env:
+
+```bash
+#!/bin/bash
+# %%GET_ENV%%
+```
+becomes
+```bash
+#!/bin/bash
+# %%GET_ENV%%
+# %%GET_ENV%% This file is handled by get_env. Local changes will be lost.
+# %%GET_ENV%% Source: dotfiles (branch master): bin/backup.sh
+# %%GET_ENV%% Put on disk: 2026-10-06 14:02:11 by get_env on myhost
+# %%GET_ENV%% git revision: 3c244b1
+# %%GET_ENV%%
+```
+Any comment style works, the characters before (and after) the keyword are kept,
+e.g. `" %%GET_ENV%%` in .vimrc or `<!-- %%GET_ENV%% -->` in HTML. Only the first such
+line is replaced. Header lines are ignored when comparing, so a file is not updated
+just because the timestamp differs. Files without the keyword are copied as is.
+Linked files (`files2link`) get no header.
