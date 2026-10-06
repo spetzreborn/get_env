@@ -839,6 +839,8 @@ validateConfig() {
     local confFile=${2}
     local badContent=""
     local validateString=""
+    # egrep exits 1 when every line is valid and 2 on error (e.g. a bad pattern).
+    local grepStatus=0
     dbg "confType = ${confType}"
     case "${confType}" in
     "get_env")
@@ -860,24 +862,34 @@ validateConfig() {
             -e "^localWorkDir=[A-Za-z0-9/_~. \"]+$" \
             -e "^backupKeepRuns=([0-9]+)?$" \
             -e "^reportUrl=[A-Za-z0-9/_~. :\"]*$" \
-            "${confFile}")
+            "${confFile}") || grepStatus=$?
         ;;
     "manifest")
         dbg "Validate type: manifest"
+        # The manifest is sourced, so the whole line must match. A value is either
+        # quoted (may contain spaces) or unquoted without spaces, since an unquoted
+        # space would run the rest of the line as a command.
+        local chars="A-Za-z0-9/_~.\$"
+        # "-" must be last in a bracket expression, or it is read as a range.
+        local value="('[${chars} -]*'|\"[${chars} -]*\"|[${chars}-]*)( +#.*)?"
         badContent=$(egrep -v \
             -e "^#" \
             -e "^$" \
-            -e "dirsToCreate=" \
-            -e "^files2copy[[][0-9]+[]]='?\"?[A-Za-z0-9/_~. $]+'?\"?" \
-            -e "^files2link[[][0-9]+[]]='?\"?[A-Za-z0-9/_~. $]+'?\"?" \
-            -e "ignoreHosts=" \
-            "${confFile}")
+            -e "^dirsToCreate=${value}$" \
+            -e "^files2copy[[][0-9]+[]]=${value}$" \
+            -e "^files2link[[][0-9]+[]]=${value}$" \
+            -e "^ignoreHosts=${value}$" \
+            "${confFile}") || grepStatus=$?
         ;;
     *)
         dbg "${confType} is not an valid confType."
         errorExit "Internal error. Run with -d to get more information."
         ;;
     esac
+    # Fail closed: if egrep itself failed, nothing was validated.
+    if [ "${grepStatus}" -gt 1 ]; then
+        errorExit "Could not validate ${confFile}. Run with -d to get more information."
+    fi
     if [ -n "${badContent}" ]; then
         dbg "${confFile} is not sanitized: ${badContent}"
         errorExit "${confFile} contains bad things: ${badContent}"
