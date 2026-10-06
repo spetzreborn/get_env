@@ -29,7 +29,7 @@ depends() {
     done
 }
 
-depends awk cat cp diff egrep find fold grep host logger mkdir rm rsync sed tac tput unzip wget
+depends awk cat cp diff egrep find fold grep host logger mkdir mv rm sed tac tput unzip wget
 
 # Verify vi have needed version of BASH to be able to continue.
 dependBashVersion() {
@@ -420,7 +420,7 @@ downloadAndUnzip() {
         fi
     fi
     foldIt "-n" "Moving files to ${localWorkDir}"
-    syncFiles "${outDir}/${repository}-${branch}" "${localWorkDir}/${repository}/"
+    syncFiles "${outDir}/${repository}-${branch}" "${localWorkDir}/${repository}/${repository}-${branch}"
     # GitHub puts the commit id as comment in the zip file.
     local revision
     revision=$(unzip -z "${outDir}/${outFile}" 2>/dev/null | tail -n 1)
@@ -523,8 +523,7 @@ gitCheckoutAndSync() {
     fi
 
     foldIt "-n" "Moving files to ${localWorkDir}"
-    createDir -f "${localWorkDir}/${repository}/${repository}-${branch}"
-    syncFiles "${localWorkDir}/git/${repository}/" "${localWorkDir}/${repository}/${repository}-${branch}"
+    syncFiles "${localWorkDir}/git/${repository}" "${localWorkDir}/${repository}/${repository}-${branch}"
     saveRevision "${repository}" "${branch}" "$(git rev-parse HEAD)"
 
     # Restore staring branch
@@ -720,7 +719,7 @@ linkFiles() {
 
     for file in "$@"; do
         # Links point into the synced copy, not the git clone, so they work with both
-        # github and own git server and survive rsync updating the files.
+        # github and own git server and survive syncFiles() updating the files.
         target="${localWorkDir}/${repository}/${repository}-${branch}/${fromDir}/${file}"
         # Test if the source file exists
         if [ ! -f "${target}" ]; then
@@ -1023,30 +1022,51 @@ get_envDiffAndRestart() {
     dbg "${FUNCNAME}() leaving function"
 }
 
-# Wrapper function for syncing files.
+# Make ${destDir} an exact copy of ${sourceDir} (without .git), so files removed from
+# the repository are removed from the copy as well. Copies to a new directory and
+# swaps it in, the path stays the same so links into it keep working.
+# Only used for get_env's own copies of repositories, never for destinations of
+# files from the manifest, so it refuses to touch anything outside ${localWorkDir}.
 # Arg: sourceDir destDir
 syncFiles() {
     dbg "${FUNCNAME}() was called, arg: ${*}"
-    local sourceDir=${1}
-    local destDir=${2}
-    if [ ! -e "${sourceDir}" ]; then
+    local sourceDir=${1%/}
+    local destDir=${2%/}
+    local newDir="${destDir}.new"
+    local oldDir="${destDir}.old"
+    if [ ! -d "${sourceDir}" ]; then
         errorExit "${sourceDir} does not exists."
     fi
-    if [ -z "${debug}" ]; then
-        if rsync -aq --delete "${sourceDir}" "${destDir}"; then
-            ok
-            dbg "rsync to ${destDir}"
-        else
-            failed "Failed to rsync"
-        fi
-    else
-        if rsync -av --delete "${sourceDir}" "${destDir}"; then
-            ok
-            dbg "rsync to ${destDir}"
-        else
-            failed "Failed to sync"
-        fi
+    # Guard for the rm -rf below.
+    case "${destDir}" in
+    */../* | */..)
+        errorExit "Refusing to sync to ${destDir}, path contains .."
+        ;;
+    "${localWorkDir}"/?*) ;;
+    *)
+        errorExit "Refusing to sync to ${destDir}, not in ${localWorkDir}"
+        ;;
+    esac
+
+    # Leftovers from an interrupted run.
+    rm -rf "${newDir}" "${oldDir}"
+    mkdir -p "${destDir%/*}" || failed "Failed to create ${destDir%/*}"
+    # cp -p keeps modes, so scripts stay executable.
+    if ! cp -R -p "${sourceDir}" "${newDir}"; then
+        rm -rf "${newDir}"
+        failed "Failed to copy ${sourceDir} to ${newDir}"
     fi
+    rm -rf "${newDir}/.git"
+    if [ -d "${destDir}" ]; then
+        mv "${destDir}" "${oldDir}" || failed "Failed to move ${destDir} to ${oldDir}"
+    fi
+    if mv "${newDir}" "${destDir}"; then
+        ok
+        dbg "Synced ${sourceDir} to ${destDir}"
+    else
+        failed "Failed to move ${newDir} to ${destDir}"
+    fi
+    rm -rf "${oldDir}"
     dbg "${FUNCNAME}() leaving function"
 }
 
