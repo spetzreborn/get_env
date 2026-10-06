@@ -29,7 +29,7 @@ depends() {
     done
 }
 
-depends awk cat cp diff find fold grep gzip head mkdir mv rm sed tar
+depends awk cat cp diff fold grep gzip head mkdir mv rm sed tar
 
 # Use curl or wget for downloads, whichever is installed.
 if command -v curl >/dev/null; then
@@ -1130,13 +1130,16 @@ rotateBackups() {
         return 0
     fi
 
-    # Run directories are named after a sortable timestamp (see ${backupTimestamp}),
-    # so oldest-to-newest is a plain sort.
     local runs=()
     local run=""
-    while IFS= read -r run; do
-        runs+=("${run}")
-    done < <(find "${backupDir}" -mindepth 1 -maxdepth 1 -type d -printf '%f\n' | sort)
+    # Glob expansion is sorted, and run directories are named after a sortable
+    # timestamp (see ${backupTimestamp}), so this is oldest-to-newest.
+    for run in "${backupDir}"/*/; do
+        # Without any match the pattern itself is returned.
+        [ -d "${run}" ] || continue
+        run=${run%/}
+        runs+=("${run##*/}")
+    done
 
     local numberOfRuns=${#runs[@]}
     if [ "${numberOfRuns}" -le "${backupKeepRuns}" ]; then
