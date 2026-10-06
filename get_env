@@ -703,7 +703,7 @@ localWorkDir=\"${localWorkDir}\"
 backupKeepRuns=${backupKeepRuns:-""}
 
 # If set, report status to this address. (Uses report.php from github.com/spetzreborn/get_env)
-reportUrl=\"\"
+reportUrl=\"${reportUrl:-""}\"
 "
 
     confFileVariableNames=$(echo "${confFileContent}" | egrep -o '^[A-Za-z_][A-Za-z0-9_]*=')
