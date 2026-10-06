@@ -446,14 +446,14 @@ gitCloneAndPull() {
             errorExit "Wrong repository: ${localWorkDir}/git/${repository}"
         fi
 
-        # Save current branch
-        local startBranch=$(git branch --no-color | grep '\*' | awk '{print $2}')
-        foldIt "-n" "Git pull ${repository} to ${localWorkDir}/git/ "
-        if git pull -q; then
+        # Only fetch here; the wanted branch is fast-forwarded after checkout,
+        # otherwise just the currently checked out branch would be updated.
+        foldIt "-n" "Git fetch ${repository} to ${localWorkDir}/git/ "
+        if git fetch -q; then
             ok
-            dbg "Git pulled ${repository} to ${localWorkDir}/git/${repository}"
+            dbg "Git fetched ${repository} to ${localWorkDir}/git/${repository}"
         else
-            failed "Failed to git pull ${localWorkDir}/git/${repository}"
+            failed "Failed to git fetch ${localWorkDir}/git/${repository}"
         fi
 
     else
@@ -469,12 +469,25 @@ gitCloneAndPull() {
         fi
     fi
 
+    gitCheckoutAndSync "${repository}" "${branch}" "update"
+
+    dbg "${FUNCNAME}() leaving function"
+}
+
+# Function to checkout a branch in the local clone and sync it to ${localWorkDir}.
+# The originally checked out branch is restored afterwards.
+# Arg: repository branch [update (optional, fast-forward branch from upstream)]
+gitCheckoutAndSync() {
+    dbg "${FUNCNAME}() was called, arg: ${*}"
+    depends git
+    local repository=${1}
+    local branch=${2}
+    local update=${3:-""}
+
     cd "${localWorkDir}/git/${repository}" || errorExit "Could not cd to ${localWorkDir}/git/${repository}"
 
-    # Save current branch, if not set already
-    if [ -z "${startBranch}" ]; then
-        local startBranch=$(git branch --no-color | grep '\*' | awk '{print $2}')
-    fi
+    # Save current branch
+    local startBranch=$(git branch --no-color | grep '\*' | awk '{print $2}')
 
     # Checkout correct branch
     foldIt "-n" "Checkout branch ${branch}"
@@ -483,6 +496,16 @@ gitCloneAndPull() {
         dbg "Checked out branch ${branch}"
     else
         failed "Could not checkout branch ${branch}"
+    fi
+
+    if [ -n "${update}" ]; then
+        foldIt "-n" "Fast-forward branch ${branch}"
+        if git merge -q --ff-only "@{upstream}"; then
+            ok
+            dbg "Fast-forwarded branch ${branch}"
+        else
+            failed "Could not fast-forward branch ${branch}"
+        fi
     fi
 
     foldIt "-n" "Moving files to ${localWorkDir}"
@@ -1101,9 +1124,15 @@ if [ -z "${offline}" ]; then
     else
         gitCloneAndPull "${gitServer}" "${gitUser}" "${repository}" "${branch}" "${sshPort}"
     fi
-# TODO: When offline, check out correct branch.
 else
     dbg "\${offline} is set \"${offline}\", don't call downloadAndUnzip() or gitCloneAndPull()"
+    # Offline: use the local clone if there is one, so the wanted branch is used.
+    if [ "${gitServer}" != "github.com" ] && [ -d "${localWorkDir}/git/${repository}/.git" ]; then
+        bar
+        gitCheckoutAndSync "${repository}" "${branch}"
+    elif [ ! -d "${localWorkDir}/${repository}/${repository}-${branch}" ]; then
+        errorExit "Offline and no local copy of ${repository} branch ${branch}"
+    fi
 fi
 
 # Configuration for all hosts.
