@@ -29,7 +29,7 @@ depends() {
     done
 }
 
-depends awk cat cp diff egrep find fold grep logger mkdir mv rm sed tput unzip wget
+depends awk cat cp diff find fold grep logger mkdir mv rm sed tput unzip wget
 
 # Verify vi have needed version of BASH to be able to continue.
 dependBashVersion() {
@@ -794,7 +794,7 @@ backupKeepRuns=${backupKeepRuns:-""}
 reportUrl=\"${reportUrl:-""}\"
 "
 
-    confFileVariableNames=$(echo "${confFileContent}" | egrep -o '^[A-Za-z_][A-Za-z0-9_]*=')
+    confFileVariableNames=$(echo "${confFileContent}" | grep -E -o '^[A-Za-z_][A-Za-z0-9_]*=')
     dbg "${FUNCNAME}() leaving function"
 }
 
@@ -918,7 +918,7 @@ validateConfig() {
     local confType=${1}
     local confFile=${2}
     local badContent=""
-    # egrep exits 1 when every line is valid and 2 on error (e.g. a bad pattern).
+    # grep exits 1 when every line is valid and 2 on error (e.g. a bad pattern).
     local grepStatus=0
     # Both files are sourced, so the whole line must match. A value is either quoted
     # (may contain spaces) or unquoted without spaces, since an unquoted space would
@@ -934,7 +934,7 @@ validateConfig() {
     case "${confType}" in
     "get_env")
         dbg "Validate type: get_env"
-        badContent=$(egrep -v \
+        badContent=$(grep -E -v \
             -e "^#" \
             -e "^$" \
             -e "^get_envGitServer=$(confValue "${name}")$" \
@@ -954,7 +954,7 @@ validateConfig() {
         ;;
     "manifest")
         dbg "Validate type: manifest"
-        badContent=$(egrep -v \
+        badContent=$(grep -E -v \
             -e "^#" \
             -e "^$" \
             -e "^dirsToCreate=$(confValue "${path}")$" \
@@ -968,7 +968,7 @@ validateConfig() {
         errorExit "Internal error. Run with -d to get more information."
         ;;
     esac
-    # Fail closed: if egrep itself failed, nothing was validated.
+    # Fail closed: if grep itself failed, nothing was validated.
     if [ "${grepStatus}" -gt 1 ]; then
         errorExit "Could not validate ${confFile}. Run with -d to get more information."
     fi
