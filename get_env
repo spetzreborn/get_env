@@ -29,7 +29,7 @@ depends() {
     done
 }
 
-depends awk cat cp diff find fold grep gzip head mkdir mv rm sed tar tput
+depends awk cat cp diff find fold grep gzip head mkdir mv rm sed tar
 
 # Use curl or wget for downloads, whichever is installed.
 if command -v curl >/dev/null; then
@@ -88,9 +88,27 @@ green='\033[1;32m'
 end='\033[0m'
 
 # Values for Warnings and Info text
-tput=$(command -v tput)
-position=$(($(${tput} cols) - 10))
-tprint="${tput} hpa ${position}"
+# tput is optional: it is missing on minimal systems and fails without $TERM (e.g.
+# from cron). Then use $COLUMNS or 80 columns and an ANSI escape to move the cursor.
+useTput=""
+columns=""
+if command -v tput >/dev/null && columns=$(tput cols 2>/dev/null) && [[ "${columns}" =~ ^[0-9]+$ ]]; then
+    useTput="yes"
+elif [[ "${COLUMNS:-}" =~ ^[0-9]+$ ]]; then
+    columns=${COLUMNS}
+else
+    columns=80
+fi
+position=$((columns - 10))
+# Move the cursor to ${position}, used before [OK] and the like.
+tprint() {
+    if [ -n "${useTput}" ]; then
+        tput hpa "${position}"
+    else
+        # hpa counts columns from 0, the ANSI escape from 1.
+        printf '\033[%sG' "$((position + 1))"
+    fi
+}
 # Colors for Info and Warning texts.
 info=${yellow}
 warning=${red}
@@ -158,7 +176,7 @@ EOF
 # -n = no newline. "echo -n"
 foldIt() {
     dbg "${FUNCNAME}() was called, arg: ${*}"
-    local maxwidth=$(($(tput cols) - 15))
+    local maxwidth=$((columns - 15))
     local extended=""
     local noNewline=""
     while [ ${#} -gt 1 ]; do
@@ -228,7 +246,7 @@ stars() {
 # Function to echo out "ok" after a check
 ok() {
     if [ -z "${quietMode}" ] || [ -n "${debug}" ]; then
-        ${tprint}
+        tprint
         echo -e "${green}[OK]${end}"
     fi
 }
@@ -236,7 +254,7 @@ ok() {
 # Function to echo out "Dryrun" after a check
 dryRun() {
     if [ -z "${quietMode}" ] || [ -n "${debug}" ]; then
-        ${tprint}
+        tprint
         echo -e "${yellow}[Dryrun]${end}"
     fi
 }
@@ -244,7 +262,7 @@ dryRun() {
 # Function to echo out "failed" after a check, and exit
 failed() {
     if [ -z "${quietMode}" ] || [ -n "${debug}" ]; then
-        ${tprint}
+        tprint
         echo -e "${warning}[FAILED]${end}"
     fi
     errorExit "${@}"
@@ -253,7 +271,7 @@ failed() {
 # Non Critical failed.
 ncfailed() {
     if [ -z "${quietMode}" ] || [ -n "${debug}" ]; then
-        ${tprint}
+        tprint
         echo -e "${warning}[FAILED]${end}"
     fi
     if [ -n "${1}" ]; then
