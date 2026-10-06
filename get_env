@@ -22,14 +22,24 @@ set -u
 depends() {
     local app=""
     for app in "$@"; do
-        if ! which "${app}" >/dev/null; then
+        if ! command -v "${app}" >/dev/null; then
             echo "Missing program \"${app}\""
             exit 1
         fi
     done
 }
 
-depends awk cat cp diff egrep find fold grep host logger mkdir rm rsync sed tac tput unzip wget
+depends awk cat cp diff find fold grep gzip head mkdir mv rm sed tar
+
+# Use curl or wget for downloads, whichever is installed.
+if command -v curl >/dev/null; then
+    httpTool="curl"
+elif command -v wget >/dev/null; then
+    httpTool="wget"
+else
+    echo "Missing program \"curl\" or \"wget\""
+    exit 1
+fi
 
 # Verify vi have needed version of BASH to be able to continue.
 dependBashVersion() {
@@ -78,9 +88,27 @@ green='\033[1;32m'
 end='\033[0m'
 
 # Values for Warnings and Info text
-tput=$(which tput)
-position=$(($(${tput} cols) - 10))
-tprint="${tput} hpa ${position}"
+# tput is optional: it is missing on minimal systems and fails without $TERM (e.g.
+# from cron). Then use $COLUMNS or 80 columns and an ANSI escape to move the cursor.
+useTput=""
+columns=""
+if command -v tput >/dev/null && columns=$(tput cols 2>/dev/null) && [[ "${columns}" =~ ^[0-9]+$ ]]; then
+    useTput="yes"
+elif [[ "${COLUMNS:-}" =~ ^[0-9]+$ ]]; then
+    columns=${COLUMNS}
+else
+    columns=80
+fi
+position=$((columns - 10))
+# Move the cursor to ${position}, used before [OK] and the like.
+tprint() {
+    if [ -n "${useTput}" ]; then
+        tput hpa "${position}"
+    else
+        # hpa counts columns from 0, the ANSI escape from 1.
+        printf '\033[%sG' "$((position + 1))"
+    fi
+}
 # Colors for Info and Warning texts.
 info=${yellow}
 warning=${red}
@@ -148,7 +176,7 @@ EOF
 # -n = no newline. "echo -n"
 foldIt() {
     dbg "${FUNCNAME}() was called, arg: ${*}"
-    local maxwidth=$(($(tput cols) - 15))
+    local maxwidth=$((columns - 15))
     local extended=""
     local noNewline=""
     while [ ${#} -gt 1 ]; do
@@ -218,7 +246,7 @@ stars() {
 # Function to echo out "ok" after a check
 ok() {
     if [ -z "${quietMode}" ] || [ -n "${debug}" ]; then
-        ${tprint}
+        tprint
         echo -e "${green}[OK]${end}"
     fi
 }
@@ -226,7 +254,7 @@ ok() {
 # Function to echo out "Dryrun" after a check
 dryRun() {
     if [ -z "${quietMode}" ] || [ -n "${debug}" ]; then
-        ${tprint}
+        tprint
         echo -e "${yellow}[Dryrun]${end}"
     fi
 }
@@ -234,7 +262,7 @@ dryRun() {
 # Function to echo out "failed" after a check, and exit
 failed() {
     if [ -z "${quietMode}" ] || [ -n "${debug}" ]; then
-        ${tprint}
+        tprint
         echo -e "${warning}[FAILED]${end}"
     fi
     errorExit "${@}"
@@ -243,7 +271,7 @@ failed() {
 # Non Critical failed.
 ncfailed() {
     if [ -z "${quietMode}" ] || [ -n "${debug}" ]; then
-        ${tprint}
+        tprint
         echo -e "${warning}[FAILED]${end}"
     fi
     if [ -n "${1}" ]; then
@@ -281,7 +309,10 @@ dbg() {
             ((i++))
         done
         debugMessage="${debugMessage}${*}"
-        logger -t "${0}" "${debugMessage}"
+        # Also to syslog, if logger is installed.
+        if command -v logger >/dev/null; then
+            logger -t "${0}" "${debugMessage}"
+        fi
         echo "$(date +"${dateFormat}") ${0} ${debugMessage}" | tee -a "${debugLog}"
     fi
 }
@@ -328,7 +359,7 @@ report() {
         postData+="${awn}"
 
         foldIt "-n" "Reporting to web server"
-        if wget "${reportUrl}" -q -O /dev/null --post-data "${postData}"; then
+        if httpPost "${reportUrl}" "${postData}"; then
             ok
             dbg "Reported to web server"
         else
@@ -373,57 +404,67 @@ EOF
 }
 
 # Function to download zip from github.
-# Arg: server user repository branch filePath
-downloadAndUnzip() {
+# Download a URL to a file with ${httpTool}, quiet unless debug.
+# Arg: url outFile
+httpGet() {
+    dbg "${FUNCNAME}() was called, arg: ${*}"
+    local quiet=""
+    if [ -z "${debug}" ]; then
+        quiet="yes"
+    fi
+    if [ "${httpTool}" = "curl" ]; then
+        # -L: GitHub redirects archive downloads, wget follows redirects by default.
+        curl -f -L ${quiet:+-s} -S -o "${2}" "${1}"
+    else
+        wget ${quiet:+-q} -O "${2}" "${1}"
+    fi
+}
+
+# Post data to a URL with ${httpTool}, the answer is thrown away.
+# Arg: url data
+httpPost() {
+    dbg "${FUNCNAME}() was called, arg: ${*}"
+    if [ "${httpTool}" = "curl" ]; then
+        curl -f -s -S -o /dev/null --data-raw "${2}" "${1}"
+    else
+        wget -q -O /dev/null --post-data "${2}" "${1}"
+    fi
+}
+
+# Download a branch from github as tar.gz and extract it to ${localWorkDir}.
+# Arg: server user repository branch
+downloadAndExtract() {
     dbg "${FUNCNAME}() was called, arg: ${*}"
     local server=${1}
     local user=${2}
     local repository=${3}
     local branch=${4}
-    local inFile="https://${server}/${user}/${repository}/archive/${branch}.zip"
+    local inFile="https://${server}/${user}/${repository}/archive/${branch}.tar.gz"
     local outDir="${downloadDir}/${repository}"
-    local outFile="${repository}-${branch}.zip"
+    local outFile="${repository}-${branch}.tar.gz"
     createDir -f -q "${downloadDir}/${repository}"
     foldIt "-n" "Downloading ${inFile}"
 
     # Download
-    if [ -z "${debug}" ]; then
-        if wget "${inFile}" -O "${outDir}/${outFile}" -q; then
-            ok
-            dbg "Downloaded ${outFile}"
-        else
-            failed "Could not download zipfile"
-        fi
+    if httpGet "${inFile}" "${outDir}/${outFile}"; then
+        ok
+        dbg "Downloaded ${outFile}"
     else
-        if wget "${inFile}" -O "${outDir}/${outFile}"; then
-            ok
-            dbg "Downloaded ${outFile}"
-        else
-            failed "Could not download zipfile"
-        fi
+        failed "Could not download ${inFile}, no internet connection?"
     fi
-    foldIt "-n" "Unzipping ${outFile}"
-    # Unzip
-    if [ -z "${debug}" ]; then
-        if unzip -o -qq "${outDir}/${outFile}" -d "${outDir}"; then
-            ok
-            dbg "Unzipped file"
-        else
-            failed "Failed to unzip"
-        fi
+    foldIt "-n" "Extracting ${outFile}"
+    # Extract, verbose if debug
+    if tar -x -z ${debug:+-v} -f "${outDir}/${outFile}" -C "${outDir}"; then
+        ok
+        dbg "Extracted file"
     else
-        if unzip -o "${outDir}/${outFile}" -d "${outDir}"; then
-            ok
-            dbg "Unzipped file"
-        else
-            failed "Failed to unzip"
-        fi
+        failed "Failed to extract ${outFile}"
     fi
     foldIt "-n" "Moving files to ${localWorkDir}"
-    syncFiles "${outDir}/${repository}-${branch}" "${localWorkDir}/${repository}/"
-    # GitHub puts the commit id as comment in the zip file.
+    syncFiles "${outDir}/${repository}-${branch}" "${localWorkDir}/${repository}/${repository}-${branch}"
+    # GitHub puts the commit id as "comment=<id>" in the first (pax) header of the tar file.
     local revision
-    revision=$(unzip -z "${outDir}/${outFile}" 2>/dev/null | tail -n 1)
+    revision=$(gzip -d -c "${outDir}/${outFile}" 2>/dev/null | head -c 1024 | grep -a -o 'comment=[0-9a-f]*' | cut -d= -f2)
     if ! [[ "${revision}" =~ ^[0-9a-f]{40}$ ]]; then
         dbg "No commit id in ${outFile}"
         revision="unknown"
@@ -523,8 +564,7 @@ gitCheckoutAndSync() {
     fi
 
     foldIt "-n" "Moving files to ${localWorkDir}"
-    createDir -f "${localWorkDir}/${repository}/${repository}-${branch}"
-    syncFiles "${localWorkDir}/git/${repository}/" "${localWorkDir}/${repository}/${repository}-${branch}"
+    syncFiles "${localWorkDir}/git/${repository}" "${localWorkDir}/${repository}/${repository}-${branch}"
     saveRevision "${repository}" "${branch}" "$(git rev-parse HEAD)"
 
     # Restore staring branch
@@ -720,7 +760,7 @@ linkFiles() {
 
     for file in "$@"; do
         # Links point into the synced copy, not the git clone, so they work with both
-        # github and own git server and survive rsync updating the files.
+        # github and own git server and survive syncFiles() updating the files.
         target="${localWorkDir}/${repository}/${repository}-${branch}/${fromDir}/${file}"
         # Test if the source file exists
         if [ ! -f "${target}" ]; then
@@ -795,7 +835,7 @@ backupKeepRuns=${backupKeepRuns:-""}
 reportUrl=\"${reportUrl:-""}\"
 "
 
-    confFileVariableNames=$(echo "${confFileContent}" | egrep -o '^[A-Za-z_][A-Za-z0-9_]*=')
+    confFileVariableNames=$(echo "${confFileContent}" | grep -E -o '^[A-Za-z_][A-Za-z0-9_]*=')
     dbg "${FUNCNAME}() leaving function"
 }
 
@@ -919,7 +959,7 @@ validateConfig() {
     local confType=${1}
     local confFile=${2}
     local badContent=""
-    # egrep exits 1 when every line is valid and 2 on error (e.g. a bad pattern).
+    # grep exits 1 when every line is valid and 2 on error (e.g. a bad pattern).
     local grepStatus=0
     # Both files are sourced, so the whole line must match. A value is either quoted
     # (may contain spaces) or unquoted without spaces, since an unquoted space would
@@ -935,7 +975,7 @@ validateConfig() {
     case "${confType}" in
     "get_env")
         dbg "Validate type: get_env"
-        badContent=$(egrep -v \
+        badContent=$(grep -E -v \
             -e "^#" \
             -e "^$" \
             -e "^get_envGitServer=$(confValue "${name}")$" \
@@ -955,7 +995,7 @@ validateConfig() {
         ;;
     "manifest")
         dbg "Validate type: manifest"
-        badContent=$(egrep -v \
+        badContent=$(grep -E -v \
             -e "^#" \
             -e "^$" \
             -e "^dirsToCreate=$(confValue "${path}")$" \
@@ -969,7 +1009,7 @@ validateConfig() {
         errorExit "Internal error. Run with -d to get more information."
         ;;
     esac
-    # Fail closed: if egrep itself failed, nothing was validated.
+    # Fail closed: if grep itself failed, nothing was validated.
     if [ "${grepStatus}" -gt 1 ]; then
         errorExit "Could not validate ${confFile}. Run with -d to get more information."
     fi
@@ -1023,30 +1063,51 @@ get_envDiffAndRestart() {
     dbg "${FUNCNAME}() leaving function"
 }
 
-# Wrapper function for syncing files.
+# Make ${destDir} an exact copy of ${sourceDir} (without .git), so files removed from
+# the repository are removed from the copy as well. Copies to a new directory and
+# swaps it in, the path stays the same so links into it keep working.
+# Only used for get_env's own copies of repositories, never for destinations of
+# files from the manifest, so it refuses to touch anything outside ${localWorkDir}.
 # Arg: sourceDir destDir
 syncFiles() {
     dbg "${FUNCNAME}() was called, arg: ${*}"
-    local sourceDir=${1}
-    local destDir=${2}
-    if [ ! -e "${sourceDir}" ]; then
+    local sourceDir=${1%/}
+    local destDir=${2%/}
+    local newDir="${destDir}.new"
+    local oldDir="${destDir}.old"
+    if [ ! -d "${sourceDir}" ]; then
         errorExit "${sourceDir} does not exists."
     fi
-    if [ -z "${debug}" ]; then
-        if rsync -aq --delete "${sourceDir}" "${destDir}"; then
-            ok
-            dbg "rsync to ${destDir}"
-        else
-            failed "Failed to rsync"
-        fi
-    else
-        if rsync -av --delete "${sourceDir}" "${destDir}"; then
-            ok
-            dbg "rsync to ${destDir}"
-        else
-            failed "Failed to sync"
-        fi
+    # Guard for the rm -rf below.
+    case "${destDir}" in
+    */../* | */..)
+        errorExit "Refusing to sync to ${destDir}, path contains .."
+        ;;
+    "${localWorkDir}"/?*) ;;
+    *)
+        errorExit "Refusing to sync to ${destDir}, not in ${localWorkDir}"
+        ;;
+    esac
+
+    # Leftovers from an interrupted run.
+    rm -rf "${newDir}" "${oldDir}"
+    mkdir -p "${destDir%/*}" || failed "Failed to create ${destDir%/*}"
+    # cp -p keeps modes, so scripts stay executable.
+    if ! cp -R -p "${sourceDir}" "${newDir}"; then
+        rm -rf "${newDir}"
+        failed "Failed to copy ${sourceDir} to ${newDir}"
     fi
+    rm -rf "${newDir}/.git"
+    if [ -d "${destDir}" ]; then
+        mv "${destDir}" "${oldDir}" || failed "Failed to move ${destDir} to ${oldDir}"
+    fi
+    if mv "${newDir}" "${destDir}"; then
+        ok
+        dbg "Synced ${sourceDir} to ${destDir}"
+    else
+        failed "Failed to move ${newDir} to ${destDir}"
+    fi
+    rm -rf "${oldDir}"
     dbg "${FUNCNAME}() leaving function"
 }
 
@@ -1255,29 +1316,15 @@ showVariables
 foldIt "Using ${localWorkDir} as working directory."
 foldIt "Using branch: ${get_envBranch} "
 
-# Check for internet connection
-if [ -n "${offline}" ]; then
-    dbg "\${offline} is set \"${offline}\", don't check internet connection"
-else
-    dbg "Checking for internet connection . . ."
-    inetCon=$(host "${get_envGitServer}")
-    inetErr=${?}
-    dbg "Checked internet connection by 'host ${get_envGitServer}' answer:${inetCon}"
-    if [ "${inetErr}" != "0" ]; then
-        offline="Don't try to report, no connection"
-        errorExit "No internet connection or none functional dns. Exiting"
-    fi
-fi
-
 # Create ${localWorkDir} directory
 createDir -f "${localWorkDir}"
 
 # Download latest get_env and repository as zip from github
 if [ -z "${offline}" ]; then
     bar
-    downloadAndUnzip "${get_envGitServer}" "${get_envGitUser}" "${get_envRepository}" "${get_envBranch}"
+    downloadAndExtract "${get_envGitServer}" "${get_envGitUser}" "${get_envRepository}" "${get_envBranch}"
 else
-    dbg "\${offline} is set \"${offline}\", don't call downloadAndUnzip()"
+    dbg "\${offline} is set \"${offline}\", don't call downloadAndExtract()"
 fi
 
 # Check if downloaded get_env is newer, then replace and restart
@@ -1292,12 +1339,12 @@ fi
 if [ -z "${offline}" ]; then
     bar
     if [ "${gitServer}" = "github.com" ]; then
-        downloadAndUnzip "${gitServer}" "${gitUser}" "${repository}" "${branch}"
+        downloadAndExtract "${gitServer}" "${gitUser}" "${repository}" "${branch}"
     else
         gitCloneAndPull "${gitServer}" "${gitUser}" "${repository}" "${branch}" "${sshPort}"
     fi
 else
-    dbg "\${offline} is set \"${offline}\", don't call downloadAndUnzip() or gitCloneAndPull()"
+    dbg "\${offline} is set \"${offline}\", don't call downloadAndExtract() or gitCloneAndPull()"
     # Offline: use the local clone if there is one, so the wanted branch is used.
     if [ "${gitServer}" != "github.com" ] && [ -d "${localWorkDir}/git/${repository}/.git" ]; then
         bar
