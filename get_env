@@ -22,7 +22,7 @@ set -u
 depends() {
     local app=""
     for app in "$@"; do
-        if ! which "${app}" >/dev/null; then
+        if ! command -v "${app}" >/dev/null; then
             echo "Missing program \"${app}\""
             exit 1
         fi
@@ -78,7 +78,7 @@ green='\033[1;32m'
 end='\033[0m'
 
 # Values for Warnings and Info text
-tput=$(which tput)
+tput=$(command -v tput)
 position=$(($(${tput} cols) - 10))
 tprint="${tput} hpa ${position}"
 # Colors for Info and Warning texts.
