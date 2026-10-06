@@ -29,7 +29,17 @@ depends() {
     done
 }
 
-depends awk cat cp diff find fold grep logger mkdir mv rm sed tput unzip wget
+depends awk cat cp diff find fold grep logger mkdir mv rm sed tput unzip
+
+# Use curl or wget for downloads, whichever is installed.
+if command -v curl >/dev/null; then
+    httpTool="curl"
+elif command -v wget >/dev/null; then
+    httpTool="wget"
+else
+    echo "Missing program \"curl\" or \"wget\""
+    exit 1
+fi
 
 # Verify vi have needed version of BASH to be able to continue.
 dependBashVersion() {
@@ -328,7 +338,7 @@ report() {
         postData+="${awn}"
 
         foldIt "-n" "Reporting to web server"
-        if wget "${reportUrl}" -q -O /dev/null --post-data "${postData}"; then
+        if httpPost "${reportUrl}" "${postData}"; then
             ok
             dbg "Reported to web server"
         else
@@ -373,6 +383,33 @@ EOF
 }
 
 # Function to download zip from github.
+# Download a URL to a file with ${httpTool}, quiet unless debug.
+# Arg: url outFile
+httpGet() {
+    dbg "${FUNCNAME}() was called, arg: ${*}"
+    local quiet=""
+    if [ -z "${debug}" ]; then
+        quiet="yes"
+    fi
+    if [ "${httpTool}" = "curl" ]; then
+        # -L: GitHub redirects archive downloads, wget follows redirects by default.
+        curl -f -L ${quiet:+-s} -S -o "${2}" "${1}"
+    else
+        wget ${quiet:+-q} -O "${2}" "${1}"
+    fi
+}
+
+# Post data to a URL with ${httpTool}, the answer is thrown away.
+# Arg: url data
+httpPost() {
+    dbg "${FUNCNAME}() was called, arg: ${*}"
+    if [ "${httpTool}" = "curl" ]; then
+        curl -f -s -S -o /dev/null --data-raw "${2}" "${1}"
+    else
+        wget -q -O /dev/null --post-data "${2}" "${1}"
+    fi
+}
+
 # Arg: server user repository branch filePath
 downloadAndUnzip() {
     dbg "${FUNCNAME}() was called, arg: ${*}"
@@ -387,20 +424,11 @@ downloadAndUnzip() {
     foldIt "-n" "Downloading ${inFile}"
 
     # Download
-    if [ -z "${debug}" ]; then
-        if wget "${inFile}" -O "${outDir}/${outFile}" -q; then
-            ok
-            dbg "Downloaded ${outFile}"
-        else
-            failed "Could not download ${inFile}, no internet connection?"
-        fi
+    if httpGet "${inFile}" "${outDir}/${outFile}"; then
+        ok
+        dbg "Downloaded ${outFile}"
     else
-        if wget "${inFile}" -O "${outDir}/${outFile}"; then
-            ok
-            dbg "Downloaded ${outFile}"
-        else
-            failed "Could not download ${inFile}, no internet connection?"
-        fi
+        failed "Could not download ${inFile}, no internet connection?"
     fi
     foldIt "-n" "Unzipping ${outFile}"
     # Unzip
