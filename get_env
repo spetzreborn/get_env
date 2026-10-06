@@ -29,7 +29,7 @@ depends() {
     done
 }
 
-depends awk cat cp diff find fold grep gzip head logger mkdir mv rm sed tar tput
+depends awk cat cp diff find fold grep gzip head mkdir mv rm sed tar tput
 
 # Use curl or wget for downloads, whichever is installed.
 if command -v curl >/dev/null; then
@@ -291,7 +291,10 @@ dbg() {
             ((i++))
         done
         debugMessage="${debugMessage}${*}"
-        logger -t "${0}" "${debugMessage}"
+        # Also to syslog, if logger is installed.
+        if command -v logger >/dev/null; then
+            logger -t "${0}" "${debugMessage}"
+        fi
         echo "$(date +"${dateFormat}") ${0} ${debugMessage}" | tee -a "${debugLog}"
     fi
 }
