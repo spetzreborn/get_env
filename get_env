@@ -96,6 +96,9 @@ dryrun=""
 dryrunCreatedDirs=""
 dryrunUpdatedFiles=""
 dryrunNewFiles=""
+dryrunLinkedFiles=""
+linkedFiles=""
+files2link=()
 noGet_envUpdate=""
 promptSourceConfigFile=""
 quietMode=""
@@ -526,6 +529,29 @@ gitCheckoutAndSync() {
     dbg "${FUNCNAME}() leaving function"
 }
 
+# Make a backup of a file that is about to be replaced.
+# Arg: dir file
+backupFile() {
+    dbg "${FUNCNAME}() was called, arg: ${*}"
+    local toDir=${1}
+    local file=${2}
+    # Backups from the same run are grouped under one timestamp directory and mirror
+    # ${toDir}, so same-named files from different directories can't collide or overwrite
+    # each other, and the original filename (dotfile or not) is kept intact.
+    local backupFile="${localWorkDir}/backup/${backupTimestamp}${toDir}/${file}"
+    createDir "${backupFile%/*}"
+    if cp -p "${toDir}/${file}" "${backupFile}"; then
+        ok
+        dbg "Backed up: ${backupFile}"
+        # Visible (non-hidden) index of every file backed up this run, so
+        # dotfiles aren't missed when just browsing with plain "ls".
+        echo "${toDir}/${file}" >>"${localWorkDir}/backup/${backupTimestamp}/index"
+    else
+        ncfailed
+    fi
+    dbg "${FUNCNAME}() leaving function"
+}
+
 # Files that shall be copied
 # Arg: dir_in_repo dir_to_be_moved_to _files_
 copyFiles() {
@@ -549,22 +575,9 @@ copyFiles() {
             # .. diff it with the source file
             if ! diff -q "${localWorkDir}/${repository}/${repository}-${branch}/${fromDir}/${file}" "${toDir}/${file}" >/dev/null 2>&1; then
                 if [ -z "${dryrun}" ]; then
-                    # .. And if it is not the same, copy to backup file. Backups from the same
-                    # run are grouped under one timestamp directory and mirror ${toDir}, so
-                    # same-named files from different directories can't collide or overwrite
-                    # each other, and the original filename (dotfile or not) is kept intact.
-                    local backupFile="${localWorkDir}/backup/${backupTimestamp}${toDir}/${file}"
-                    createDir "${backupFile%/*}"
+                    # .. And if it is not the same, copy to backup file.
                     foldIt "-n" "Found difference in ${toDir}/${file}, making backup"
-                    if cp -p "${toDir}/${file}" "${backupFile}"; then
-                        ok
-                        dbg "Backed up: ${backupFile}"
-                        # Visible (non-hidden) index of every file backed up this run, so
-                        # dotfiles aren't missed when just browsing with plain "ls".
-                        echo "${toDir}/${file}" >>"${localWorkDir}/backup/${backupTimestamp}/index"
-                    else
-                        ncfailed
-                    fi
+                    backupFile "${toDir}" "${file}"
                 fi
                 # .. Copy the new file
                 foldIt "-n" "Copy new ${toDir}/${file}"
@@ -597,6 +610,58 @@ copyFiles() {
                 else
                     failed "Could not copy ${localWorkDir}/${repository}/${repository}-${branch}/${fromDir}/${file} to ${toDir}/${file}"
                 fi
+            fi
+        fi
+    done
+    dbg "${FUNCNAME}() leaving function"
+}
+
+# Files that shall be symlinked from the repository instead of copied
+# Arg: dir_in_repo dir_to_link_from _files_
+linkFiles() {
+    dbg "${FUNCNAME}() was called, arg: ${*}"
+    local fromDir=${1}
+    shift
+    local toDir=${1}
+    shift
+    local file=""
+    local target=""
+    # Test if ${toDir} exists
+    createDir "${toDir}"
+
+    for file in "$@"; do
+        # Links point into the synced copy, not the git clone, so they work with both
+        # github and own git server and survive rsync updating the files.
+        target="${localWorkDir}/${repository}/${repository}-${branch}/${fromDir}/${file}"
+        # Test if the source file exists
+        if [ ! -f "${target}" ]; then
+            foldIt "-n" "Checking for file ${file}"
+            failed "File does not exists: ${target}"
+        fi
+        if [ -L "${toDir}/${file}" ]; then
+            # Already a link. Only replace it if it points elsewhere (e.g. other branch).
+            if [ "$(readlink "${toDir}/${file}")" = "${target}" ]; then
+                dbg "${toDir}/${file} already links to ${target}"
+                continue
+            fi
+        elif [ -e "${toDir}/${file}" ]; then
+            # A regular file is in the way, back it up before it is replaced by the link.
+            if [ -z "${dryrun}" ]; then
+                foldIt "-n" "Found file ${toDir}/${file}, making backup"
+                backupFile "${toDir}" "${file}"
+            fi
+        fi
+        foldIt "-n" "Link ${toDir}/${file}"
+        if [ -n "${dryrun}" ]; then
+            dryRun
+            dryrunLinkedFiles="${dryrunLinkedFiles}${file} "
+        else
+            if ln -sfn "${target}" "${toDir}/${file}"; then
+                ok
+                dbg "Linked ${toDir}/${file} -> ${target}"
+                linkedFiles="${linkedFiles}${file} "
+            else
+                failed "Could not link ${toDir}/${file} to ${target}"
             fi
         fi
     done
@@ -757,6 +822,12 @@ showVariablesHostConfig() {
         dbg "\${files2copy[${i}]}: ${fileEntry}"
         ((i++))
     done
+    # Call dbg() for all values in array ${files2link}
+    i=0
+    for fileEntry in "${files2link[@]}"; do
+        dbg "\${files2link[${i}]}: ${fileEntry}"
+        ((i++))
+    done
     dbg "${FUNCNAME}() leaving function"
 }
 
@@ -798,6 +869,7 @@ validateConfig() {
             -e "^$" \
             -e "dirsToCreate=" \
             -e "^files2copy[[][0-9]+[]]='?\"?[A-Za-z0-9/_~. $]+'?\"?" \
+            -e "^files2link[[][0-9]+[]]='?\"?[A-Za-z0-9/_~. $]+'?\"?" \
             -e "ignoreHosts=" \
             "${confFile}")
         ;;
@@ -1154,6 +1226,10 @@ if [ -f "${allHostConf}" ]; then
             # shellcheck disable=SC2086 # This function need globbing.
             copyFiles ${array}
         done
+        for array in "${files2link[@]}"; do
+            # shellcheck disable=SC2086 # This function need globbing.
+            linkFiles ${array}
+        done
     else
         dbg "${HOSTNAME} in manifest ignorelist. Don't run manifest"
     fi
@@ -1161,8 +1237,9 @@ else
     errorExit "Cant find 'manifest': ${allHostConf}"
 fi
 
-# Empty ${files2copy} and ${dirsToCreate} before specific host configuration.
+# Empty ${files2copy}, ${files2link} and ${dirsToCreate} before specific host configuration.
 files2copy=()
+files2link=()
 dirsToCreate=""
 
 # Specific host configuration
@@ -1181,6 +1258,10 @@ if [ -f "${hostConf}" ]; then
     for array in "${files2copy[@]}"; do
         # shellcheck disable=SC2086 # This function need globbing.
         copyFiles ${array}
+    done
+    for array in "${files2link[@]}"; do
+        # shellcheck disable=SC2086 # This function need globbing.
+        linkFiles ${array}
     done
 fi
 
@@ -1223,12 +1304,15 @@ fi
 #    esac
 # done
 
-if [ -z "${newFiles}" ] && [ -z "${updatedFiles}" ] && [ -z "${dryrun}" ]; then
+if [ -z "${newFiles}" ] && [ -z "${updatedFiles}" ] && [ -z "${linkedFiles}" ] && [ -z "${dryrun}" ]; then
     foldIt "No new or changed files."
+fi
+if [ -n "${linkedFiles}" ]; then
+    foldIt "New or changed links: ${linkedFiles}"
 fi
 
 if [ -n "${dryrun}" ]; then
-    if [ -z "${dryrunNewFiles}" ] && [ -z "${dryrunUpdatedFiles}" ]; then
+    if [ -z "${dryrunNewFiles}" ] && [ -z "${dryrunUpdatedFiles}" ] && [ -z "${dryrunLinkedFiles}" ]; then
         foldIt "No files should been updated."
     else
         if [ -n "${dryrunNewFiles}" ]; then
@@ -1236,6 +1320,9 @@ if [ -n "${dryrun}" ]; then
         fi
         if [ -n "${dryrunUpdatedFiles}" ]; then
             foldIt "These files should have been changed: ${dryrunUpdatedFiles}"
+        fi
+        if [ -n "${dryrunLinkedFiles}" ]; then
+            foldIt "These links should have been created or changed: ${dryrunLinkedFiles}"
         fi
     fi
     if [ -z "${dryrunCreatedDirs}" ]; then
