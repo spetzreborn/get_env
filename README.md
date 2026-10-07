@@ -24,11 +24,14 @@ The repository has a `manifest` in its root for all hosts, and optionally
 ```bash
 # Space-separated list of directories to create.
 dirsToCreate="$HOME/.local/bin $HOME/.config/foo"
-# Copy files: 'dir_in_repo destination_dir files...'
-files2copy[0]='dotfiles $HOME .bashrc .vimrc'
-# Symlink files instead of copying: 'dir_in_repo destination_dir files...'
-files2link[0]='bin $HOME/.local/bin backup.sh deploy.sh'
+# Copy files: "dir_in_repo destination_dir files..."
+files2copy[0]="dotfiles $HOME .bashrc .vimrc"
+# Symlink files instead of copying: "dir_in_repo destination_dir files..."
+files2link[0]="bin $HOME/.local/bin backup.sh deploy.sh"
 ```
+
+Use double quotes, so `$HOME` is expanded. Destination directories must be absolute
+paths, `~` is not expanded either.
 
 Links point to the synced copy of the repository in the working directory, so they
 are kept up to date on every run. A regular file in the way is backed up before it is
