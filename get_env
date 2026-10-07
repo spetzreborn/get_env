@@ -882,6 +882,14 @@ createDir() {
     done
 
     for dir in "$@"; do
+        # A relative path would be created in whatever directory get_env is run from,
+        # e.g. from $HOME in single quotes in the manifest, which isn't expanded.
+        case "${dir}" in
+        /*) ;;
+        *)
+            errorExit "Not an absolute path: ${dir} - in the manifest, use \$HOME in double quotes"
+            ;;
+        esac
         dbg "Test if ${dir} exists"
         if [ ! -d "${dir}" ]; then
             if [ -z "${quiet}" ]; then
