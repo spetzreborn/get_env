@@ -378,7 +378,7 @@ errorExit() {
     echo -e "${warning}${myName}: ${1:-"Unknown Error"}${end}" 1>&2
     dbg "${myName}: ${1:-"Unknown Error"}"
     report "error=${1}"
-    cleanup
+    # cleanup() is run by the EXIT trap.
     exit 1
     dbg "${FUNCNAME}() leaving function"
 }
@@ -1177,8 +1177,8 @@ cleanup() {
 
 ### End of functions
 
-# Always cleanup() on exit, including early exits (eg. helpMenu()) and interrupts
-# (Ctrl+C), not just the explicit calls already in place for clarity elsewhere.
+# Always cleanup() on exit, including errorExit(), early exits (eg. helpMenu()),
+# interrupts (Ctrl+C) and the normal end of the script.
 # Note: this does NOT fire across exec, so the explicit cleanup() calls right
 # before get_envDiffAndRestart()'s "exec ~/${myName} ..." remain necessary.
 trap cleanup EXIT
@@ -1486,8 +1486,7 @@ fi
 # Report to web server my status
 report
 
-# Cleanup
-cleanup
+# cleanup() is run by the EXIT trap when the script ends.
 
 # End
 dbg "End of script, debugLog saved in ${debugLog}"
