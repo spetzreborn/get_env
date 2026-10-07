@@ -136,8 +136,8 @@ dateFormat='%Y-%m-%d %H:%M:%S'
 # A comment line with this keyword in a copied file is replaced with a header saying
 # the file is handled by get_env. Fixed, so the same repository works with a renamed get_env.
 headerKeyword="%%GET_ENV%%"
-ddate=$(date +"${dateFormat}")
-# Filesystem-safe timestamp, used to group backups made during this run under one directory.
+# Filesystem-safe timestamp for this run, used to group backups under one directory
+# and in the debugLog name.
 backupDateFormat='%Y-%m-%dT%H-%M-%S'
 backupTimestamp=$(date +"${backupDateFormat}")
 
@@ -389,7 +389,7 @@ helpMenu() {
 "Useage: ${0} arguments"
     options:
     -d   Debug - shows whats happening and saves debugLog in the form
-         /tmp/${myName}.debugLog.2013-10-21T10:42:37.XXXXXXXXX
+         /tmp/${myName}.debugLog.2013-10-21T10-42-37.XXXXXX
     -f   Offline - don't require internetconnection. Just refresh from localrepo.
     -h   This helptext
     -l   If debug is used, use this file as debugLog.
@@ -1227,7 +1227,7 @@ done
 # Only create a debugLog if there is not one.
 if [ -n "${debug}" ]; then
     if [ -z "${debugLog}" ]; then
-        debugLog=$(mktemp "/tmp/${myName}.debugLog.${ddate}.XXXXXX")
+        debugLog=$(mktemp "/tmp/${myName}.debugLog.${backupTimestamp}.XXXXXX")
     fi
     # After the options are read, so the file from -l or mktemp is known.
     echo "Debug is set, saving debugLog to: ${debugLog}"
