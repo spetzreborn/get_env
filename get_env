@@ -1193,7 +1193,6 @@ while getopts ":dfhl:nqr:u" opt; do
     case ${opt} in
     d)
         debug="-d"
-        echo "Debug is set, saving debugLog to: ${debugLog}"
         ;;
     f)
         offline="true"
@@ -1230,6 +1229,8 @@ if [ -n "${debug}" ]; then
     if [ -z "${debugLog}" ]; then
         debugLog=$(mktemp "/tmp/${myName}.debugLog.${ddate}.XXXXXX")
     fi
+    # After the options are read, so the file from -l or mktemp is known.
+    echo "Debug is set, saving debugLog to: ${debugLog}"
 fi
 
 dbg "I have started, read variables and functions and are on line:${LINENO}"
