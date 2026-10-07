@@ -126,7 +126,10 @@ dryrunUpdatedFiles=""
 dryrunNewFiles=""
 dryrunLinkedFiles=""
 linkedFiles=""
+# Manifest variables, all optional in a manifest.
+files2copy=()
 files2link=()
+dirsToCreate=""
 noGet_envUpdate=""
 promptSourceConfigFile=""
 quietMode=""
