@@ -1035,6 +1035,27 @@ validateConfig() {
     dbg "${FUNCNAME}() leaving function"
 }
 
+# Print the repository relative path of every file a manifest copies or links.
+# Arg: manifest (already validated, so sourcing it only assigns variables)
+manifestSources() {
+    # Local, so the manifest does not overwrite the variables of this run.
+    local -a files2copy=() files2link=()
+    local dirsToCreate="" ignoreHosts=""
+    . "${1}"
+    local entry="" fromDir="" file=""
+    for entry in "${files2copy[@]}" "${files2link[@]}"; do
+        # Split into fromDir, toDir and files. The validation allows no glob characters.
+        # shellcheck disable=SC2086
+        set -- ${entry}
+        fromDir=${1#/}
+        fromDir=${fromDir%/}
+        shift 2
+        for file in "$@"; do
+            echo "${fromDir:+${fromDir}/}${file}"
+        done
+    done
+}
+
 # Test if there was a change in get_env - and is needed to be run again.
 # Need absolute name in from file, so it truly can make variable name.
 # This diff dose not care about comments.
