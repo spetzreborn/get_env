@@ -1056,6 +1056,45 @@ manifestSources() {
     done
 }
 
+# Pack the manifests that apply to a host, and the files they reference, with paths
+# relative to the repository, so only these files are sent to that host.
+# Arg: repository directory, target hostname, tarball to create
+bundleRepository() {
+    dbg "${FUNCNAME}() was called, arg: ${*}"
+    local repoDir=${1}
+    local targetHost=${2}
+    local bundle=${3}
+    local manifests=("manifest")
+    local manifest="" path="" missing="" list=""
+
+    if [ ! -f "${repoDir}/manifest" ]; then
+        errorExit "Cant find 'manifest': ${repoDir}/manifest"
+    fi
+    if [ -f "${repoDir}/HOSTS/${targetHost}/manifest" ]; then
+        manifests+=("HOSTS/${targetHost}/manifest")
+    fi
+    for manifest in "${manifests[@]}"; do
+        validateConfig "manifest" "${repoDir}/${manifest}"
+    done
+    list=$(
+        for manifest in "${manifests[@]}"; do
+            echo "${manifest}"
+            manifestSources "${repoDir}/${manifest}"
+        done | sort -u
+    )
+    for path in ${list}; do
+        [ -f "${repoDir}/${path}" ] || missing="${missing}${path} "
+    done
+    if [ -n "${missing}" ]; then
+        errorExit "Files in manifest not found in ${repoDir}: ${missing}"
+    fi
+    dbg "Bundle for ${targetHost}: ${list}"
+    if ! echo "${list}" | tar -c -z -f "${bundle}" -C "${repoDir}" -T -; then
+        errorExit "Could not create ${bundle}"
+    fi
+    dbg "${FUNCNAME}() leaving function"
+}
+
 # Test if there was a change in get_env - and is needed to be run again.
 # Need absolute name in from file, so it truly can make variable name.
 # This diff dose not care about comments.
