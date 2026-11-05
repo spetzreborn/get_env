@@ -62,3 +62,6 @@ e.g. `" %%GET_ENV%%` in .vimrc or `<!-- %%GET_ENV%% -->` in HTML. Only the first
 line is replaced. Header lines are ignored when comparing, so a file is not updated
 just because the timestamp differs. Files without the keyword are copied as is.
 Linked files (`files2link`) get no header.
+
+### Tests
+Run `bats test/` (needs [bats-core](https://github.com/bats-core/bats-core)).
