@@ -1211,6 +1211,9 @@ cleanup() {
 
 ### End of functions
 
+# Stop here when sourced, e.g. by the tests, so only the functions are defined.
+[[ "${BASH_SOURCE[0]}" != "${0}" ]] && return
+
 # Always cleanup() on exit, including errorExit(), early exits (eg. helpMenu()),
 # interrupts (Ctrl+C) and the normal end of the script.
 # Note: this does NOT fire across exec, so the explicit cleanup() calls right
