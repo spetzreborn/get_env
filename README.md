@@ -63,5 +63,12 @@ line is replaced. Header lines are ignored when comparing, so a file is not upda
 just because the timestamp differs. Files without the keyword are copied as is.
 Linked files (`files2link`) get no header.
 
+### Deploy to another host
+`get_env -R host` deploys to `host` over ssh instead of this host, e.g. a shared
+server you don't want the whole repository on. Only the files of `manifest` and
+`HOSTS/<hostname of host>/manifest` are sent, and get_env runs offline there, with its
+workdir and backups in `~/.get_env`. `~/get_env.conf` on that host is overwritten.
+The target never updates itself; run `get_env -R host` again.
+
 ### Tests
 Run `bats test/` (needs [bats-core](https://github.com/bats-core/bats-core)).

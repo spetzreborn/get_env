@@ -117,6 +117,7 @@ downloadDir=$(mktemp -d "/tmp/${myName}.XXXXXX")
 debug=""
 debugLog=""
 offline=""
+remoteHost=""
 createdDirs=""
 updatedFiles=""
 newFiles=""
@@ -402,6 +403,8 @@ helpMenu() {
          May create local workdir for ${myName}.
     -q   Quietmode - no output exept errors, good for running from cron.
     -r   Directory to create and download repo to, default same name as my filename (${myName})
+    -R   Deploy to this host over ssh instead of this host. Only the files its
+         manifests need are sent, and ${myName} is run offline there.
     -u   Do not update ${myName} even if newer is found
 
 EOF
@@ -1101,6 +1104,65 @@ bundleRepository() {
     dbg "${FUNCNAME}() leaving function"
 }
 
+# Write the conf for ${myName} on a remote host, from the conf of this run.
+# Arg: workdir relative to the remote home, file to write
+writeRemoteConf() {
+    dbg "${FUNCNAME}() was called, arg: ${*}"
+    # Local, so the conf of this run is not changed.
+    local confFileContent="" confFileVariableNames=""
+    # Expanded when the conf is sourced on the remote host.
+    # shellcheck disable=SC2016
+    local localWorkDir='$HOME/'"${1}"
+    local reportUrl=""
+    generateConfFile
+    echo "${confFileContent}" >"${2}"
+    dbg "${FUNCNAME}() leaving function"
+}
+
+# Deploy to ${remoteHost}: send ${myName}, a conf and the files its manifests need,
+# then run ${myName} offline there. The new copy of the repository is unpacked next to
+# the old one and only replaces it when complete.
+pushToRemote() {
+    dbg "${FUNCNAME}() was called, arg: ${*}"
+    local stageDir="${downloadDir}/remote"
+    local remoteWorkDir=".${myName}"
+    local remoteRepo="${remoteWorkDir}/${repository}/${repository}-${branch}"
+    local targetHost=""
+    local remoteCommand=""
+
+    foldIt "-n" "Getting hostname of ${remoteHost}"
+    if targetHost=$(ssh "${remoteHost}" hostname) && [[ "${targetHost}" =~ ^[A-Za-z0-9._-]+$ ]]; then
+        ok
+    else
+        failed "Could not get hostname of ${remoteHost}"
+    fi
+
+    foldIt "-n" "Bundling files for ${targetHost}"
+    mkdir -p "${stageDir}/${remoteRepo}.new" "${stageDir}/${remoteWorkDir}/revisions"
+    bundleRepository "${localWorkDir}/${repository}/${repository}-${branch}" "${targetHost}" "${downloadDir}/repository.tgz"
+    tar -x -z -f "${downloadDir}/repository.tgz" -C "${stageDir}/${remoteRepo}.new"
+    cp "$(readlink -f "${BASH_SOURCE[0]}")" "${stageDir}/${remoteWorkDir}/${myName}"
+    if [ -r "${localWorkDir}/revisions/${repository}-${branch}" ]; then
+        cp "${localWorkDir}/revisions/${repository}-${branch}" "${stageDir}/${remoteWorkDir}/revisions/"
+    fi
+    echo "${HOSTNAME}" >"${stageDir}/${remoteWorkDir}/pushedFrom"
+    writeRemoteConf "${remoteWorkDir}" "${stageDir}/${myName}.conf"
+    ok
+
+    remoteCommand="set -e; cd; mkdir -p ${remoteWorkDir}/${repository}; rm -rf ${remoteRepo}.new"
+    remoteCommand+="; tar -x -z -f -; rm -rf ${remoteRepo}; mv ${remoteRepo}.new ${remoteRepo}"
+    remoteCommand+="; ${remoteWorkDir}/${myName} -f ${dryrun} ${quietMode} ${debug}"
+    dbg "Remote command: ${remoteCommand}"
+    foldIt "Running ${myName} on ${remoteHost}"
+    bar
+    # The command is built here on purpose, its values are validated or fixed options.
+    # shellcheck disable=SC2029
+    if ! tar -c -z -f - -C "${stageDir}" . | ssh "${remoteHost}" "${remoteCommand}"; then
+        errorExit "${myName} failed on ${remoteHost}"
+    fi
+    dbg "${FUNCNAME}() leaving function"
+}
+
 # Test if there was a change in get_env - and is needed to be run again.
 # Need absolute name in from file, so it truly can make variable name.
 # This diff dose not care about comments.
@@ -1131,6 +1193,7 @@ get_envDiffAndRestart() {
             local restartArgs=(-r "${localWorkDir}")
             [ -n "${quietMode}" ] && restartArgs+=("${quietMode}")
             [ -n "${debug}" ] && restartArgs+=("${debug}" -l "${debugLog}")
+            [ -n "${remoteHost}" ] && restartArgs+=(-R "${remoteHost}")
             cleanup
             exec ~/"${myName}" "${restartArgs[@]}"
         fi
@@ -1269,7 +1332,7 @@ if [ "${TERM}" = "screen" ]; then
     dbg "\${TERM} was screen, setting it to xterm for running in this script"
 fi
 
-while getopts ":dfhl:nqr:u" opt; do
+while getopts ":dfhl:nqr:R:u" opt; do
     case ${opt} in
     d)
         debug="-d"
@@ -1291,6 +1354,13 @@ while getopts ":dfhl:nqr:u" opt; do
         ;;
     r)
         localWorkDir=$(readlink -f "${OPTARG}")
+        ;;
+    R)
+        # Passed to ssh and used in the remote command, so no leading "-" or odd characters.
+        if ! [[ "${OPTARG}" =~ ^[A-Za-z0-9._][A-Za-z0-9._@-]*$ ]]; then
+            errorExit "Invalid host: ${OPTARG}"
+        fi
+        remoteHost=${OPTARG}
         ;;
     u)
         noGet_envUpdate="-u"
@@ -1436,6 +1506,13 @@ else
     elif [ ! -d "${localWorkDir}/${repository}/${repository}-${branch}" ]; then
         errorExit "Offline and no local copy of ${repository} branch ${branch}"
     fi
+fi
+
+# Deploy to the remote host instead of this host.
+if [ -n "${remoteHost}" ]; then
+    bar
+    pushToRemote
+    exit 0
 fi
 
 # Configuration for all hosts.
