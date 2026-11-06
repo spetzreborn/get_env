@@ -1121,14 +1121,12 @@ get_envDiffAndRestart() {
             stars
             foldIt ""
             foldIt ""
-            # Makes next script start with debug if this instance was started with debug.
-            if [ -n "${debug}" ]; then
-                cleanup
-                exec ~/"${myName}" -r "${localWorkDir}" "${quietMode}" "${noGet_envUpdate}" "${debug}" -l "${debugLog}"
-            else
-                cleanup
-                exec ~/"${myName}" -r "${localWorkDir}" "${quietMode}" "${noGet_envUpdate}"
-            fi
+            # Pass on only the options that are set, getopts stops at an empty argument.
+            local restartArgs=(-r "${localWorkDir}")
+            [ -n "${quietMode}" ] && restartArgs+=("${quietMode}")
+            [ -n "${debug}" ] && restartArgs+=("${debug}" -l "${debugLog}")
+            cleanup
+            exec ~/"${myName}" "${restartArgs[@]}"
         fi
     else
         foldIt "Already running latest ${myName}"
