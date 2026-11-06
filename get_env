@@ -654,14 +654,20 @@ catWithHeader() {
         revision=$(cut -c 1-7 "${localWorkDir}/revisions/${repository}-${branch}")
     fi
 
+    local texts=(
+        ""
+        " This file is handled by ${myName}. Local changes will be lost."
+        " Source: ${repository} (branch ${branch}): ${relPath#./}"
+        " Put on disk: $(date +"${dateFormat}") by ${myName} on ${HOSTNAME}"
+    )
+    # Written by pushToRemote() on the host it deploys to.
+    if [ -r "${localWorkDir}/pushedFrom" ]; then
+        texts+=(" Pushed from $(head -n 1 "${localWorkDir}/pushedFrom") with ${myName} -R")
+    fi
+    texts+=(" git revision: ${revision}" "")
+
     head -n $((lineNumber - 1)) "${infile}"
-    for text in \
-        "" \
-        " This file is handled by ${myName}. Local changes will be lost." \
-        " Source: ${repository} (branch ${branch}): ${relPath#./}" \
-        " Put on disk: $(date +"${dateFormat}") by ${myName} on ${HOSTNAME}" \
-        " git revision: ${revision}" \
-        ""; do
+    for text in "${texts[@]}"; do
         echo "${indent}${commentStart} ${headerKeyword}${text}${commentEnd}"
     done
     tail -n +$((lineNumber + 1)) "${infile}"
