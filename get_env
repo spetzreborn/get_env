@@ -596,7 +596,8 @@ backupFile() {
     # ${toDir}, so same-named files from different directories can't collide or overwrite
     # each other, and the original filename (dotfile or not) is kept intact.
     local backupFile="${localWorkDir}/backup/${backupTimestamp}${toDir}/${file}"
-    createDir "${backupFile%/*}"
+    # Quiet, the caller has already started the "making backup" line.
+    createDir -q "${backupFile%/*}"
     if cp -p "${toDir}/${file}" "${backupFile}"; then
         ok
         dbg "Backed up: ${backupFile}"
