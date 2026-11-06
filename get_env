@@ -117,6 +117,7 @@ downloadDir=$(mktemp -d "/tmp/${myName}.XXXXXX")
 debug=""
 debugLog=""
 offline=""
+remoteHost=""
 createdDirs=""
 updatedFiles=""
 newFiles=""
@@ -402,6 +403,8 @@ helpMenu() {
          May create local workdir for ${myName}.
     -q   Quietmode - no output exept errors, good for running from cron.
     -r   Directory to create and download repo to, default same name as my filename (${myName})
+    -R   Deploy to this host over ssh instead of this host. Only the files its
+         manifests need are sent, and ${myName} is run offline there.
     -u   Do not update ${myName} even if newer is found
 
 EOF
@@ -655,14 +658,20 @@ catWithHeader() {
         revision=$(cut -c 1-7 "${localWorkDir}/revisions/${repository}-${branch}")
     fi
 
+    local texts=(
+        ""
+        " This file is handled by ${myName}. Local changes will be lost."
+        " Source: ${repository} (branch ${branch}): ${relPath#./}"
+        " Put on disk: $(date +"${dateFormat}") by ${myName} on ${HOSTNAME}"
+    )
+    # Written by pushToRemote() on the host it deploys to.
+    if [ -r "${localWorkDir}/pushedFrom" ]; then
+        texts+=(" Pushed from $(head -n 1 "${localWorkDir}/pushedFrom") with ${myName} -R")
+    fi
+    texts+=(" git revision: ${revision}" "")
+
     head -n $((lineNumber - 1)) "${infile}"
-    for text in \
-        "" \
-        " This file is handled by ${myName}. Local changes will be lost." \
-        " Source: ${repository} (branch ${branch}): ${relPath#./}" \
-        " Put on disk: $(date +"${dateFormat}") by ${myName} on ${HOSTNAME}" \
-        " git revision: ${revision}" \
-        ""; do
+    for text in "${texts[@]}"; do
         echo "${indent}${commentStart} ${headerKeyword}${text}${commentEnd}"
     done
     tail -n +$((lineNumber + 1)) "${infile}"
@@ -1036,6 +1045,125 @@ validateConfig() {
     dbg "${FUNCNAME}() leaving function"
 }
 
+# Print the repository relative path of every file a manifest copies or links.
+# Arg: manifest (already validated, so sourcing it only assigns variables)
+manifestSources() {
+    # Local, so the manifest does not overwrite the variables of this run.
+    local -a files2copy=() files2link=()
+    local dirsToCreate="" ignoreHosts=""
+    . "${1}"
+    local entry="" fromDir="" file=""
+    for entry in "${files2copy[@]}" "${files2link[@]}"; do
+        # Split into fromDir, toDir and files. The validation allows no glob characters.
+        # shellcheck disable=SC2086
+        set -- ${entry}
+        fromDir=${1#/}
+        fromDir=${fromDir%/}
+        shift 2
+        for file in "$@"; do
+            echo "${fromDir:+${fromDir}/}${file}"
+        done
+    done
+}
+
+# Pack the manifests that apply to a host, and the files they reference, with paths
+# relative to the repository, so only these files are sent to that host.
+# Arg: repository directory, target hostname, tarball to create
+bundleRepository() {
+    dbg "${FUNCNAME}() was called, arg: ${*}"
+    local repoDir=${1}
+    local targetHost=${2}
+    local bundle=${3}
+    local manifests=("manifest")
+    local manifest="" path="" missing="" list=""
+
+    if [ ! -f "${repoDir}/manifest" ]; then
+        errorExit "Cant find 'manifest': ${repoDir}/manifest"
+    fi
+    if [ -f "${repoDir}/HOSTS/${targetHost}/manifest" ]; then
+        manifests+=("HOSTS/${targetHost}/manifest")
+    fi
+    for manifest in "${manifests[@]}"; do
+        validateConfig "manifest" "${repoDir}/${manifest}"
+    done
+    list=$(
+        for manifest in "${manifests[@]}"; do
+            echo "${manifest}"
+            manifestSources "${repoDir}/${manifest}"
+        done | sort -u
+    )
+    for path in ${list}; do
+        [ -f "${repoDir}/${path}" ] || missing="${missing}${path} "
+    done
+    if [ -n "${missing}" ]; then
+        errorExit "Files in manifest not found in ${repoDir}: ${missing}"
+    fi
+    dbg "Bundle for ${targetHost}: ${list}"
+    if ! echo "${list}" | tar -c -z -f "${bundle}" -C "${repoDir}" -T -; then
+        errorExit "Could not create ${bundle}"
+    fi
+    dbg "${FUNCNAME}() leaving function"
+}
+
+# Write the conf for ${myName} on a remote host, from the conf of this run.
+# Arg: workdir relative to the remote home, file to write
+writeRemoteConf() {
+    dbg "${FUNCNAME}() was called, arg: ${*}"
+    # Local, so the conf of this run is not changed.
+    local confFileContent="" confFileVariableNames=""
+    # Expanded when the conf is sourced on the remote host.
+    # shellcheck disable=SC2016
+    local localWorkDir='$HOME/'"${1}"
+    local reportUrl=""
+    generateConfFile
+    echo "${confFileContent}" >"${2}"
+    dbg "${FUNCNAME}() leaving function"
+}
+
+# Deploy to ${remoteHost}: send ${myName}, a conf and the files its manifests need,
+# then run ${myName} offline there. The new copy of the repository is unpacked next to
+# the old one and only replaces it when complete.
+pushToRemote() {
+    dbg "${FUNCNAME}() was called, arg: ${*}"
+    local stageDir="${downloadDir}/remote"
+    local remoteWorkDir=".${myName}"
+    local remoteRepo="${remoteWorkDir}/${repository}/${repository}-${branch}"
+    local targetHost=""
+    local remoteCommand=""
+
+    foldIt "-n" "Getting hostname of ${remoteHost}"
+    if targetHost=$(ssh "${remoteHost}" hostname) && [[ "${targetHost}" =~ ^[A-Za-z0-9._-]+$ ]]; then
+        ok
+    else
+        failed "Could not get hostname of ${remoteHost}"
+    fi
+
+    foldIt "-n" "Bundling files for ${targetHost}"
+    mkdir -p "${stageDir}/${remoteRepo}.new" "${stageDir}/${remoteWorkDir}/revisions"
+    bundleRepository "${localWorkDir}/${repository}/${repository}-${branch}" "${targetHost}" "${downloadDir}/repository.tgz"
+    tar -x -z -f "${downloadDir}/repository.tgz" -C "${stageDir}/${remoteRepo}.new"
+    cp "$(readlink -f "${BASH_SOURCE[0]}")" "${stageDir}/${remoteWorkDir}/${myName}"
+    if [ -r "${localWorkDir}/revisions/${repository}-${branch}" ]; then
+        cp "${localWorkDir}/revisions/${repository}-${branch}" "${stageDir}/${remoteWorkDir}/revisions/"
+    fi
+    echo "${HOSTNAME}" >"${stageDir}/${remoteWorkDir}/pushedFrom"
+    writeRemoteConf "${remoteWorkDir}" "${stageDir}/${myName}.conf"
+    ok
+
+    remoteCommand="set -e; cd; mkdir -p ${remoteWorkDir}/${repository}; rm -rf ${remoteRepo}.new"
+    remoteCommand+="; tar -x -z -f -; rm -rf ${remoteRepo}; mv ${remoteRepo}.new ${remoteRepo}"
+    remoteCommand+="; ${remoteWorkDir}/${myName} -f ${dryrun} ${quietMode} ${debug}"
+    dbg "Remote command: ${remoteCommand}"
+    foldIt "Running ${myName} on ${remoteHost}"
+    bar
+    # The command is built here on purpose, its values are validated or fixed options.
+    # shellcheck disable=SC2029
+    if ! tar -c -z -f - -C "${stageDir}" . | ssh "${remoteHost}" "${remoteCommand}"; then
+        errorExit "${myName} failed on ${remoteHost}"
+    fi
+    dbg "${FUNCNAME}() leaving function"
+}
+
 # Test if there was a change in get_env - and is needed to be run again.
 # Need absolute name in from file, so it truly can make variable name.
 # This diff dose not care about comments.
@@ -1066,6 +1194,7 @@ get_envDiffAndRestart() {
             local restartArgs=(-r "${localWorkDir}")
             [ -n "${quietMode}" ] && restartArgs+=("${quietMode}")
             [ -n "${debug}" ] && restartArgs+=("${debug}" -l "${debugLog}")
+            [ -n "${remoteHost}" ] && restartArgs+=(-R "${remoteHost}")
             cleanup
             exec ~/"${myName}" "${restartArgs[@]}"
         fi
@@ -1189,6 +1318,9 @@ cleanup() {
 
 ### End of functions
 
+# Stop here when sourced, e.g. by the tests, so only the functions are defined.
+[[ "${BASH_SOURCE[0]}" != "${0}" ]] && return
+
 # Always cleanup() on exit, including errorExit(), early exits (eg. helpMenu()),
 # interrupts (Ctrl+C) and the normal end of the script.
 # Note: this does NOT fire across exec, so the explicit cleanup() calls right
@@ -1201,7 +1333,7 @@ if [ "${TERM}" = "screen" ]; then
     dbg "\${TERM} was screen, setting it to xterm for running in this script"
 fi
 
-while getopts ":dfhl:nqr:u" opt; do
+while getopts ":dfhl:nqr:R:u" opt; do
     case ${opt} in
     d)
         debug="-d"
@@ -1223,6 +1355,13 @@ while getopts ":dfhl:nqr:u" opt; do
         ;;
     r)
         localWorkDir=$(readlink -f "${OPTARG}")
+        ;;
+    R)
+        # Passed to ssh and used in the remote command, so no leading "-" or odd characters.
+        if ! [[ "${OPTARG}" =~ ^[A-Za-z0-9._][A-Za-z0-9._@-]*$ ]]; then
+            errorExit "Invalid host: ${OPTARG}"
+        fi
+        remoteHost=${OPTARG}
         ;;
     u)
         noGet_envUpdate="-u"
@@ -1368,6 +1507,13 @@ else
     elif [ ! -d "${localWorkDir}/${repository}/${repository}-${branch}" ]; then
         errorExit "Offline and no local copy of ${repository} branch ${branch}"
     fi
+fi
+
+# Deploy to the remote host instead of this host.
+if [ -n "${remoteHost}" ]; then
+    bar
+    pushToRemote
+    exit 0
 fi
 
 # Configuration for all hosts.
