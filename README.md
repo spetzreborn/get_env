@@ -33,6 +33,9 @@ files2link[0]="bin $HOME/.local/bin backup.sh deploy.sh"
 Use double quotes, so `$HOME` is expanded. Destination directories must be absolute
 paths, `~` is not expanded either.
 
+A file that both manifests put in the same place is only taken from the host
+manifest, so the common manifest holds the default for every other host.
+
 Links point to the synced copy of the repository in the working directory, so they
 are kept up to date on every run. A regular file in the way is backed up before it is
 replaced by a link. Don't edit linked files in place, the next run overwrites them.

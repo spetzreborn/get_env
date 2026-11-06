@@ -131,6 +131,8 @@ linkedFiles=""
 files2copy=()
 files2link=()
 dirsToCreate=""
+# Destination paths in the host manifest, see overriddenByHost().
+hostTargets=""
 noGet_envUpdate=""
 promptSourceConfigFile=""
 quietMode=""
@@ -694,6 +696,7 @@ copyFiles() {
     createDir "${toDir}"
 
     for file in "$@"; do
+        overriddenByHost "${toDir}" "${file}" && continue
         sourceFile="${localWorkDir}/${repository}/${repository}-${branch}/${fromDir}/${file}"
         # Test if the source file exists
         if [ ! -f "${sourceFile}" ]; then
@@ -774,6 +777,7 @@ linkFiles() {
     createDir "${toDir}"
 
     for file in "$@"; do
+        overriddenByHost "${toDir}" "${file}" && continue
         # Links point into the synced copy, not the git clone, so they work with both
         # github and own git server and survive syncFiles() updating the files.
         target="${localWorkDir}/${repository}/${repository}-${branch}/${fromDir}/${file}"
@@ -1045,25 +1049,42 @@ validateConfig() {
     dbg "${FUNCNAME}() leaving function"
 }
 
-# Print the repository relative path of every file a manifest copies or links.
-# Arg: manifest (already validated, so sourcing it only assigns variables)
-manifestSources() {
+# Print every file a manifest copies or links: its repository relative path (source),
+# or its destination path (target).
+# Arg: manifest (already validated, so sourcing it only assigns variables) source|target
+manifestFiles() {
+    local mode=${2}
     # Local, so the manifest does not overwrite the variables of this run.
     local -a files2copy=() files2link=()
     local dirsToCreate="" ignoreHosts=""
     . "${1}"
-    local entry="" fromDir="" file=""
+    local entry="" fromDir="" toDir="" file=""
     for entry in "${files2copy[@]}" "${files2link[@]}"; do
         # Split into fromDir, toDir and files. The validation allows no glob characters.
         # shellcheck disable=SC2086
         set -- ${entry}
         fromDir=${1#/}
         fromDir=${fromDir%/}
+        toDir=${2%/}
         shift 2
         for file in "$@"; do
-            echo "${fromDir:+${fromDir}/}${file}"
+            if [ "${mode}" = "target" ]; then
+                echo "${toDir}/${file}"
+            else
+                echo "${fromDir:+${fromDir}/}${file}"
+            fi
         done
     done
+}
+
+# True if the host manifest also has dir/file, so the common manifest skips it and the
+# host version is the only one put on disk.
+# Arg: dir file
+overriddenByHost() {
+    if [ -z "${hostTargets}" ] || ! grep -q -x -F "${1%/}/${2}" <<<"${hostTargets}"; then
+        return 1
+    fi
+    dbg "${1%/}/${2} is in the host manifest, skipped in the common manifest"
 }
 
 # Pack the manifests that apply to a host, and the files they reference, with paths
@@ -1089,7 +1110,7 @@ bundleRepository() {
     list=$(
         for manifest in "${manifests[@]}"; do
             echo "${manifest}"
-            manifestSources "${repoDir}/${manifest}"
+            manifestFiles "${repoDir}/${manifest}" source
         done | sort -u
     )
     for path in ${list}; do
@@ -1516,6 +1537,13 @@ if [ -n "${remoteHost}" ]; then
     exit 0
 fi
 
+# A file in the host manifest replaces the same file in the common manifest.
+hostConf="${localWorkDir}/${repository}/${repository}-${branch}/HOSTS/${HOSTNAME}/manifest"
+if [ -f "${hostConf}" ]; then
+    validateConfig "manifest" "${hostConf}"
+    hostTargets=$(manifestFiles "${hostConf}" target)
+fi
+
 # Configuration for all hosts.
 allHostConf="${localWorkDir}/${repository}/${repository}-${branch}/manifest"
 if [ -f "${allHostConf}" ]; then
@@ -1550,12 +1578,11 @@ fi
 files2copy=()
 files2link=()
 dirsToCreate=""
+hostTargets=""
 
 # Specific host configuration
-hostConf="${localWorkDir}/${repository}/${repository}-${branch}/HOSTS/${HOSTNAME}/manifest"
 if [ -f "${hostConf}" ]; then
     foldIt "Found host specific configuration"
-    validateConfig "manifest" "${hostConf}"
 
     # Source host specific conf and run actions.
     . "${hostConf}"
