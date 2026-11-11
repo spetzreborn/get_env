@@ -60,3 +60,10 @@ getEnv() {
     [ ! -e "${HOME}/bin/tool" ]
     [[ "${output}" == *"These links should have been created or changed: tool"* ]]
 }
+
+@test "ignoreHosts matches whole host names only" {
+    echo "ignoreHosts=\"$(hostname)2 x$(hostname)\"" >>"${repo}/manifest"
+    run getEnv
+    [ "${status}" -eq 0 ]
+    [ "$(cat "${HOME}/.bashrc")" = common ]
+}

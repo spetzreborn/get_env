@@ -1601,8 +1601,8 @@ if [ -f "${allHostConf}" ]; then
     # Source configuration for all hosts and run actions.
     . "${allHostConf}"
     showVariablesHostConfig "allHostConf"
-    ignoreAllHostConf=$(echo "${ignoreHosts:-""}" | grep "${HOSTNAME}")
-    if [ -z "${ignoreAllHostConf}" ]; then
+    # Whole names only, so "admin2" does not also ignore "admin".
+    if ! [[ " ${ignoreHosts:-} " == *" ${HOSTNAME} "* ]]; then
         dbg "${HOSTNAME} not in manifest ignorelist."
         # dirsToCreate is a space-separated list, not an array - needs splitting here.
         for dir in ${dirsToCreate}; do
