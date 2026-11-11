@@ -280,7 +280,7 @@ ncfailed() {
         tprint
         echo -e "${warning}[FAILED]${end}"
     fi
-    if [ -n "${1}" ]; then
+    if [ -n "${1:-}" ]; then
         foldIt "-e" "INFO: ${*}"
     fi
 }
@@ -345,7 +345,7 @@ report() {
         done
         local postData="date=$(date +"${dateFormat}")&"
         postData+="hostname=${HOSTNAME}&"
-        postData+="user=${USER}&"
+        postData+="user=${USER:-}&"
         postData+="get_envGitServer=${get_envGitServer}&"
         postData+="get_envGitUser=${get_envGitUser}&"
         postData+="get_envRepository=${get_envRepository}&"
