@@ -50,3 +50,13 @@ getEnv() {
     [ "${status}" -ne 0 ]
     [[ "${output}" == *"File does not exists: ${repo}/etc/missing"* ]]
 }
+
+@test "dryrun does not create links" {
+    echo 'files2link[0]="etc $HOME/bin tool"' >>"${repo}/manifest"
+    echo tool >"${repo}/etc/tool"
+    mkdir "${HOME}/bin"
+    run getEnv -n
+    [ "${status}" -eq 0 ]
+    [ ! -e "${HOME}/bin/tool" ]
+    [[ "${output}" == *"These links should have been created or changed: tool"* ]]
+}
