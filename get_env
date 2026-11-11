@@ -610,7 +610,8 @@ backupFile() {
         # dotfiles aren't missed when just browsing with plain "ls".
         echo "${toDir}/${file}" >>"${localWorkDir}/backup/${backupTimestamp}/index"
     else
-        ncfailed
+        # The caller replaces the file next, so without a backup local changes would be lost.
+        failed "Could not back up ${toDir}/${file}, not replacing it"
     fi
     dbg "${FUNCNAME}() leaving function"
 }
