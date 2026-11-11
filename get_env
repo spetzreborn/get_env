@@ -280,7 +280,7 @@ ncfailed() {
         tprint
         echo -e "${warning}[FAILED]${end}"
     fi
-    if [ -n "${1}" ]; then
+    if [ -n "${1:-}" ]; then
         foldIt "-e" "INFO: ${*}"
     fi
 }
