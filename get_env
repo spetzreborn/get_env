@@ -345,7 +345,7 @@ report() {
         done
         local postData="date=$(date +"${dateFormat}")&"
         postData+="hostname=${HOSTNAME}&"
-        postData+="user=${USER}&"
+        postData+="user=${USER:-}&"
         postData+="get_envGitServer=${get_envGitServer}&"
         postData+="get_envGitUser=${get_envGitUser}&"
         postData+="get_envRepository=${get_envRepository}&"
