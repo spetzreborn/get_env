@@ -24,6 +24,11 @@ setup() {
     echo secret >"${repo}/etc/secret"
 }
 
+# ${output} on one line, since get_env folds long lines.
+joinedOutput() {
+    echo "${output}" | tr '\n' ' ' | tr -s ' '
+}
+
 getEnv() {
     HOME=${LOCAL_HOME} PATH="${T}/bin:${PATH}" "${BATS_TEST_DIRNAME}/../get_env" -f "$@"
 }
@@ -96,4 +101,30 @@ getEnv() {
     run getEnv -R -oProxyCommand=x
     [ "${status}" -ne 0 ]
     [[ "${output}" == *"Invalid host"* ]]
+}
+
+@test "a push is remembered, not a dryrun push" {
+    run getEnv -n -R target
+    [ ! -e "${LOCAL_HOME}/.get_env/remotes/target" ]
+    getEnv -R target
+    [ "$(head -n 1 "${LOCAL_HOME}/.get_env/remotes/target")" = "$(hostname)" ]
+}
+
+@test "no reminder when nothing changed for the pushed host" {
+    getEnv -R target
+    echo changed >"${repo}/etc/secret"
+    run getEnv
+    [ "${status}" -eq 0 ]
+    [[ "$(joinedOutput)" != *"run: get_env -R"* ]]
+}
+
+@test "reminds when a file of the pushed host changed" {
+    getEnv -R target
+    echo 'alias la="ls -a"' >>"${repo}/etc/.bashrc"
+    run getEnv
+    [ "${status}" -eq 0 ]
+    [[ "$(joinedOutput)" == *"Files for target changed since the last push, run: get_env -R target"* ]]
+    getEnv -R target
+    run getEnv
+    [[ "$(joinedOutput)" != *"run: get_env -R"* ]]
 }
