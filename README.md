@@ -77,3 +77,5 @@ here reminds you when files for a host changed since the last push to it; remove
 
 ### Tests
 Run `bats test/` (needs [bats-core](https://github.com/bats-core/bats-core)).
+`test/coverage.sh [function...]` shows which lines of get_env the tests run, per
+function, and the missed lines of the named functions.
