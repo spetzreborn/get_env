@@ -8,7 +8,8 @@ setup() {
     repo=${LOCAL_HOME}/.get_env/dotfiles/dotfiles-master
     mkdir -p "${T}/bin" "${REMOTE_HOME}" "${repo}/etc" "${repo}/HOSTS/$(hostname)" "${repo}/HOSTS/otherhost"
 
-    printf '%s\n' '#!/bin/bash' 'shift' 'cd "${REMOTE_HOME}" && HOME="${REMOTE_HOME}" exec bash -c "$*"' >"${T}/bin/ssh"
+    printf '%s\n' '#!/bin/bash' '[ -z "${FAIL_SSH}" ] || exit 255' 'shift' \
+        'cd "${REMOTE_HOME}" && HOME="${REMOTE_HOME}" exec bash -c "$*"' >"${T}/bin/ssh"
     chmod +x "${T}/bin/ssh"
 
     printf '%s\n' 'get_envGitServer="github.com"' 'get_envGitUser="spetzreborn"' 'get_envRepository="get_env"' \
@@ -127,4 +128,18 @@ getEnv() {
     getEnv -R target
     run getEnv
     [[ "$(joinedOutput)" != *"run: get_env -R"* ]]
+}
+
+@test "fails when the remote host can't be reached" {
+    export FAIL_SSH=yes
+    run getEnv -R target
+    [ "${status}" -ne 0 ]
+    [[ "${output}" == *"Could not get hostname of target"* ]]
+}
+
+@test "the header on the remote host has the revision of this host" {
+    mkdir -p "${LOCAL_HOME}/.get_env/revisions"
+    echo 0123456789abcdef0123456789abcdef01234567 >"${LOCAL_HOME}/.get_env/revisions/dotfiles-master"
+    getEnv -R target
+    grep -q '%%GET_ENV%% git revision: 0123456' "${REMOTE_HOME}/.bashrc"
 }

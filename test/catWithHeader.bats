@@ -30,3 +30,16 @@ teardown() {
     [ "${lines[5]}" = '# %%GET_ENV%% Pushed from X1 with get_env -R' ]
     [ "${lines[6]}" = '# %%GET_ENV%% git revision: unknown' ]
 }
+
+@test "header has the short git revision when it is known" {
+    mkdir -p "${localWorkDir}/revisions"
+    echo 0123456789abcdef0123456789abcdef01234567 >"${localWorkDir}/revisions/dotfiles-master"
+    run catWithHeader infile etc/infile
+    [ "${lines[5]}" = '# %%GET_ENV%% git revision: 0123456' ]
+}
+
+@test "a file with the keyword only in code is copied as is" {
+    printf '%s\n' 'kw="%%GET_ENV%%"' >code
+    run catWithHeader code etc/code
+    [ "${output}" = 'kw="%%GET_ENV%%"' ]
+}
