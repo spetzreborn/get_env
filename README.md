@@ -71,7 +71,9 @@ Linked files (`files2link`) get no header.
 server you don't want the whole repository on. Only the files of `manifest` and
 `HOSTS/<hostname of host>/manifest` are sent, and get_env runs offline there, with its
 workdir and backups in `~/.get_env`. `~/get_env.conf` on that host is overwritten.
-The target never updates itself; run `get_env -R host` again.
+The target never updates itself; run `get_env -R host` again. Every run of get_env
+here reminds you when files for a host changed since the last push to it; remove
+`remotes/<host>` in the workdir to stop that.
 
 ### Tests
 Run `bats test/` (needs [bats-core](https://github.com/bats-core/bats-core)).

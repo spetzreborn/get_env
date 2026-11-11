@@ -1087,16 +1087,16 @@ overriddenByHost() {
     dbg "${1%/}/${2} is in the host manifest, skipped in the common manifest"
 }
 
-# Pack the manifests that apply to a host, and the files they reference, with paths
-# relative to the repository, so only these files are sent to that host.
-# Arg: repository directory, target hostname, tarball to create
-bundleRepository() {
+# Set ${bundleList} to the manifests that apply to a host and the files they reference,
+# relative to the repository. Returns 1 if a file is missing, listed in ${bundleMissing}.
+# The caller declares both local.
+# Arg: repository directory, target hostname
+bundleFiles() {
     dbg "${FUNCNAME}() was called, arg: ${*}"
     local repoDir=${1}
     local targetHost=${2}
-    local bundle=${3}
     local manifests=("manifest")
-    local manifest="" path="" missing="" list=""
+    local manifest="" path=""
 
     if [ ! -f "${repoDir}/manifest" ]; then
         errorExit "Cant find 'manifest': ${repoDir}/manifest"
@@ -1107,20 +1107,39 @@ bundleRepository() {
     for manifest in "${manifests[@]}"; do
         validateConfig "manifest" "${repoDir}/${manifest}"
     done
-    list=$(
+    bundleList=$(
         for manifest in "${manifests[@]}"; do
             echo "${manifest}"
             manifestFiles "${repoDir}/${manifest}" source
         done | sort -u
     )
-    for path in ${list}; do
-        [ -f "${repoDir}/${path}" ] || missing="${missing}${path} "
+    bundleMissing=""
+    for path in ${bundleList}; do
+        [ -f "${repoDir}/${path}" ] || bundleMissing="${bundleMissing}${path} "
     done
-    if [ -n "${missing}" ]; then
-        errorExit "Files in manifest not found in ${repoDir}: ${missing}"
+    dbg "Bundle for ${targetHost}: ${bundleList}"
+    [ -z "${bundleMissing}" ]
+}
+
+# One checksum of the paths and contents of ${bundleList}, to see if a host needs a new push.
+# Arg: repository directory
+bundleChecksum() {
+    # The paths are validated (no spaces or globs), split on purpose.
+    # shellcheck disable=SC2086
+    (cd "${1}" && sha256sum -- ${bundleList}) | sha256sum | cut -d ' ' -f 1
+}
+
+# Pack the manifests that apply to a host, and the files they reference, with paths
+# relative to the repository, so only these files are sent to that host.
+# Arg: repository directory, target hostname, tarball to create
+bundleRepository() {
+    dbg "${FUNCNAME}() was called, arg: ${*}"
+    local repoDir=${1}
+    local bundle=${3}
+    if ! bundleFiles "${repoDir}" "${2}"; then
+        errorExit "Files in manifest not found in ${repoDir}: ${bundleMissing}"
     fi
-    dbg "Bundle for ${targetHost}: ${list}"
-    if ! echo "${list}" | tar -c -z -f "${bundle}" -C "${repoDir}" -T -; then
+    if ! echo "${bundleList}" | tar -c -z -f "${bundle}" -C "${repoDir}" -T -; then
         errorExit "Could not create ${bundle}"
     fi
     dbg "${FUNCNAME}() leaving function"
@@ -1149,8 +1168,10 @@ pushToRemote() {
     local stageDir="${downloadDir}/remote"
     local remoteWorkDir=".${myName}"
     local remoteRepo="${remoteWorkDir}/${repository}/${repository}-${branch}"
+    local repoDir="${localWorkDir}/${repository}/${repository}-${branch}"
     local targetHost=""
     local remoteCommand=""
+    local bundleList="" bundleMissing=""
 
     foldIt "-n" "Getting hostname of ${remoteHost}"
     if targetHost=$(ssh "${remoteHost}" hostname) && [[ "${targetHost}" =~ ^[A-Za-z0-9._-]+$ ]]; then
@@ -1161,7 +1182,7 @@ pushToRemote() {
 
     foldIt "-n" "Bundling files for ${targetHost}"
     mkdir -p "${stageDir}/${remoteRepo}.new" "${stageDir}/${remoteWorkDir}/revisions"
-    bundleRepository "${localWorkDir}/${repository}/${repository}-${branch}" "${targetHost}" "${downloadDir}/repository.tgz"
+    bundleRepository "${repoDir}" "${targetHost}" "${downloadDir}/repository.tgz"
     tar -x -z -f "${downloadDir}/repository.tgz" -C "${stageDir}/${remoteRepo}.new"
     cp "$(readlink -f "${BASH_SOURCE[0]}")" "${stageDir}/${remoteWorkDir}/${myName}"
     if [ -r "${localWorkDir}/revisions/${repository}-${branch}" ]; then
@@ -1182,6 +1203,33 @@ pushToRemote() {
     if ! tar -c -z -f - -C "${stageDir}" . | ssh "${remoteHost}" "${remoteCommand}"; then
         errorExit "${myName} failed on ${remoteHost}"
     fi
+    # Remember what was pushed, for remindRemotes().
+    if [ -z "${dryrun}" ] && command -v sha256sum >/dev/null; then
+        createDir -q -f "${localWorkDir}/remotes"
+        printf '%s\n' "${targetHost}" "$(bundleChecksum "${repoDir}")" >"${localWorkDir}/remotes/${remoteHost}"
+    fi
+    dbg "${FUNCNAME}() leaving function"
+}
+
+# Remind about hosts whose files changed since the last "${myName} -R" to them.
+# Remove ${localWorkDir}/remotes/<host> to stop the reminders for a host.
+remindRemotes() {
+    dbg "${FUNCNAME}() was called, arg: ${*}"
+    local repoDir="${localWorkDir}/${repository}/${repository}-${branch}"
+    local remote="" targetHost="" checksum="" bundleList="" bundleMissing=""
+    if ! command -v sha256sum >/dev/null; then
+        return
+    fi
+    for remote in "${localWorkDir}/remotes/"*; do
+        [ -f "${remote}" ] || continue
+        { read -r targetHost; read -r checksum; } <"${remote}"
+        [[ "${targetHost}" =~ ^[A-Za-z0-9._-]+$ ]] || continue
+        if bundleFiles "${repoDir}" "${targetHost}" && [ "$(bundleChecksum "${repoDir}")" = "${checksum}" ]; then
+            dbg "${remote##*/} is up to date"
+            continue
+        fi
+        foldIt "-e" "${info}Files for ${remote##*/} changed since the last push, run: ${myName} -R ${remote##*/}${end}"
+    done
     dbg "${FUNCNAME}() leaving function"
 }
 
@@ -1667,6 +1715,8 @@ if [ -n "${dryrun}" ]; then
         foldIt "These new directories would have been created: ${dryrunCreatedDirs}"
     fi
 fi
+
+remindRemotes
 
 # Report to web server my status
 report
