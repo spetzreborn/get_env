@@ -134,6 +134,8 @@ dirsToCreate=""
 # Destination paths in the host manifest, see overriddenByHost().
 hostTargets=""
 noGet_envUpdate=""
+# Set by -r, and then wins over localWorkDir in confFile.
+workDirOption=""
 promptSourceConfigFile=""
 quietMode=""
 reportUrl=""
@@ -1425,6 +1427,7 @@ while getopts ":dfhl:nqr:R:u" opt; do
         ;;
     r)
         localWorkDir=$(readlink -f "${OPTARG}")
+        workDirOption=${localWorkDir}
         ;;
     R)
         # Passed to ssh and used in the remote command, so no leading "-" or odd characters.
@@ -1527,6 +1530,9 @@ if . "${confFile}"; then
     dbg "Sourced confFile: ${confFile}"
 else
     failed "Could not source confFile: ${confFile}"
+fi
+if [ -n "${workDirOption}" ]; then
+    localWorkDir=${workDirOption}
 fi
 
 # Git may clone both with and without trailing '.git'. Local repository will not have .git,

@@ -36,6 +36,16 @@ getEnv() {
     grep -q 'copyFiles() was called' "${BATS_TEST_TMPDIR}/debug.log"
 }
 
+@test "-r uses another workdir than the conf" {
+    other="${BATS_TEST_TMPDIR}/other"
+    mkdir -p "${other}"
+    mv "${HOME}/.get_env/dotfiles" "${other}/"
+    run getEnv -r "${other}"
+    [ "${status}" -eq 0 ]
+    [[ "${output}" == *"Using ${other} as working directory."* ]]
+    [ "$(cat "${HOME}/.bashrc")" = new ]
+}
+
 @test "an unknown option is refused" {
     run getEnv -x
     [ "${status}" -ne 0 ]
