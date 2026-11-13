@@ -108,7 +108,36 @@ getEnv() {
     run getEnv -n -R target
     [ ! -e "${LOCAL_HOME}/.get_env/remotes/target" ]
     getEnv -R target
-    [ "$(head -n 1 "${LOCAL_HOME}/.get_env/remotes/target")" = "$(hostname)" ]
+    [[ " $(head -n 1 "${LOCAL_HOME}/.get_env/remotes/target") " == *" $(hostname) "* ]]
+}
+
+# hostname on the remote host prints ${1} for -f, else ${2}.
+remoteHostname() {
+    printf '%s\n' '#!/bin/bash' "[ \"\$1\" = -f ] && echo ${1} || echo ${2}" >"${T}/bin/hostname"
+    chmod +x "${T}/bin/hostname"
+    for dir in otherhost otherhost.example.org; do
+        mkdir -p "${repo}/HOSTS/${dir}"
+        echo "files2copy[0]=\"/HOSTS/${dir} \$HOME .hostfile\"" >"${repo}/HOSTS/${dir}/manifest"
+        echo "${dir}" >"${repo}/HOSTS/${dir}/.hostfile"
+    done
+}
+
+@test "the HOSTS directory of the remote FQDN is used first" {
+    remoteHostname otherhost.example.org otherhost
+    getEnv -R target
+    [ "$(cat "${REMOTE_HOME}/.hostfile")" = otherhost.example.org ]
+    [ ! -e "${REMOTE_HOME}/.get_env/dotfiles/dotfiles-master/HOSTS/otherhost" ]
+    [ "$(head -n 1 "${LOCAL_HOME}/.get_env/remotes/target")" = "otherhost.example.org otherhost" ]
+}
+
+@test "a remote hostname with domain also finds the short name directory" {
+    remoteHostname otherhost.example.org otherhost.example.org
+    rm -r "${repo}/HOSTS/otherhost.example.org"
+    run getEnv -R target
+    [ "${status}" -eq 0 ]
+    [ "$(cat "${REMOTE_HOME}/.hostfile")" = otherhost ]
+    run getEnv
+    [[ "$(joinedOutput)" != *"run: get_env -R"* ]]
 }
 
 @test "no reminder when nothing changed for the pushed host" {
