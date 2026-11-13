@@ -19,7 +19,9 @@ You can even have multiple get_env with different names and different configurat
 
 ### Manifest
 The repository has a `manifest` in its root for all hosts, and optionally
-`HOSTS/<hostname>/manifest` for a specific host.
+`HOSTS/<hostname>/manifest` for a specific host. The first manifest found of
+`HOSTS/<fqdn>` (`hostname -f`), `HOSTS/<hostname>` and `HOSTS/<short hostname>` is used,
+and `ignoreHosts` matches any of these names.
 
 ```bash
 # Space-separated list of directories to create.

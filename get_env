@@ -1090,6 +1090,48 @@ overriddenByHost() {
     dbg "${1%/}/${2} is in the host manifest, skipped in the common manifest"
 }
 
+# Print the valid names, then the same names without domain, each once, on one line.
+# Arg: host names, most specific first
+hostNames() {
+    local name="" names=()
+    for name in "$@" "${@%%.*}"; do
+        if [[ "${name}" =~ ^[A-Za-z0-9._-]+$ && " ${names[*]:-} " != *" ${name} "* ]]; then
+            names+=("${name}")
+        fi
+    done
+    echo "${names[*]:-}"
+}
+
+# Print the FQDN of this host, if known. hostname -f may wait for DNS, so it has a timeout.
+localFqdn() {
+    command -v timeout >/dev/null && timeout 2 hostname -f 2>/dev/null
+}
+
+# Print the first name that has HOSTS/<name>/manifest, or else the first name.
+# Arg: repository directory, host names
+hostDirName() {
+    local repoDir=${1} name=""
+    shift
+    for name in "$@"; do
+        if [ -f "${repoDir}/HOSTS/${name}/manifest" ]; then
+            echo "${name}"
+            return
+        fi
+    done
+    echo "${1:-}"
+}
+
+# Return 0 if one of the names is in ${ignoreHosts}.
+# Whole names only, so "admin2" does not also ignore "admin".
+# Arg: host names
+isIgnoredHost() {
+    local name=""
+    for name in "$@"; do
+        [[ " ${ignoreHosts:-} " == *" ${name} "* ]] && return 0
+    done
+    return 1
+}
+
 # Set ${bundleList} to the manifests that apply to a host and the files they reference,
 # relative to the repository. Returns 1 if a file is missing, listed in ${bundleMissing}.
 # The caller declares both local.
@@ -1172,16 +1214,22 @@ pushToRemote() {
     local remoteWorkDir=".${myName}"
     local remoteRepo="${remoteWorkDir}/${repository}/${repository}-${branch}"
     local repoDir="${localWorkDir}/${repository}/${repository}-${branch}"
-    local targetHost=""
+    local targetHost="" targetNames="" remoteOutput="" remoteNames=()
     local remoteCommand=""
     local bundleList="" bundleMissing=""
 
     foldIt "-n" "Getting hostname of ${remoteHost}"
-    if targetHost=$(ssh "${remoteHost}" hostname) && [[ "${targetHost}" =~ ^[A-Za-z0-9._-]+$ ]]; then
+    # The same names as localFqdn() and ${HOSTNAME} give when ${myName} runs there.
+    if remoteOutput=$(ssh "${remoteHost}" 'timeout 2 hostname -f 2>/dev/null; hostname') \
+        && mapfile -t remoteNames <<<"${remoteOutput}" \
+        && targetNames=$(hostNames "${remoteNames[@]}") && [ -n "${targetNames}" ]; then
         ok
     else
         failed "Could not get hostname of ${remoteHost}"
     fi
+    # Validated names, split on purpose.
+    # shellcheck disable=SC2086
+    targetHost=$(hostDirName "${repoDir}" ${targetNames})
 
     foldIt "-n" "Bundling files for ${targetHost}"
     mkdir -p "${stageDir}/${remoteRepo}.new" "${stageDir}/${remoteWorkDir}/revisions"
@@ -1209,7 +1257,7 @@ pushToRemote() {
     # Remember what was pushed, for remindRemotes().
     if [ -z "${dryrun}" ] && command -v sha256sum >/dev/null; then
         createDir -q -f "${localWorkDir}/remotes"
-        printf '%s\n' "${targetHost}" "$(bundleChecksum "${repoDir}")" >"${localWorkDir}/remotes/${remoteHost}"
+        printf '%s\n' "${targetNames}" "$(bundleChecksum "${repoDir}")" >"${localWorkDir}/remotes/${remoteHost}"
     fi
     dbg "${FUNCNAME}() leaving function"
 }
@@ -1219,15 +1267,18 @@ pushToRemote() {
 remindRemotes() {
     dbg "${FUNCNAME}() was called, arg: ${*}"
     local repoDir="${localWorkDir}/${repository}/${repository}-${branch}"
-    local remote="" targetHost="" checksum="" bundleList="" bundleMissing=""
+    local remote="" targetNames="" checksum="" bundleList="" bundleMissing=""
     if ! command -v sha256sum >/dev/null; then
         return
     fi
     for remote in "${localWorkDir}/remotes/"*; do
         [ -f "${remote}" ] || continue
-        { read -r targetHost; read -r checksum; } <"${remote}"
-        [[ "${targetHost}" =~ ^[A-Za-z0-9._-]+$ ]] || continue
-        if bundleFiles "${repoDir}" "${targetHost}" && [ "$(bundleChecksum "${repoDir}")" = "${checksum}" ]; then
+        { read -r targetNames; read -r checksum; } <"${remote}"
+        [[ "${targetNames}" =~ ^[A-Za-z0-9._\ -]+$ ]] || continue
+        # Validated names, split on purpose.
+        # shellcheck disable=SC2086
+        if bundleFiles "${repoDir}" "$(hostDirName "${repoDir}" ${targetNames})" \
+            && [ "$(bundleChecksum "${repoDir}")" = "${checksum}" ]; then
             dbg "${remote##*/} is up to date"
             continue
         fi
@@ -1592,8 +1643,14 @@ if [ -n "${remoteHost}" ]; then
     exit 0
 fi
 
+# The host directory is HOSTS/<FQDN> or else HOSTS/<hostname>, as for -R.
+thisHostNames=$(hostNames "$(localFqdn || true)" "${HOSTNAME}")
+dbg "Names of this host: ${thisHostNames}"
+# Validated names, split on purpose.
+# shellcheck disable=SC2086
+hostConf="${localWorkDir}/${repository}/${repository}-${branch}/HOSTS/$(hostDirName \
+    "${localWorkDir}/${repository}/${repository}-${branch}" ${thisHostNames})/manifest"
 # A file in the host manifest replaces the same file in the common manifest.
-hostConf="${localWorkDir}/${repository}/${repository}-${branch}/HOSTS/${HOSTNAME}/manifest"
 if [ -f "${hostConf}" ]; then
     validateConfig "manifest" "${hostConf}"
     hostTargets=$(manifestFiles "${hostConf}" target)
@@ -1607,9 +1664,9 @@ if [ -f "${allHostConf}" ]; then
     # Source configuration for all hosts and run actions.
     . "${allHostConf}"
     showVariablesHostConfig "allHostConf"
-    # Whole names only, so "admin2" does not also ignore "admin".
-    if ! [[ " ${ignoreHosts:-} " == *" ${HOSTNAME} "* ]]; then
-        dbg "${HOSTNAME} not in manifest ignorelist."
+    # shellcheck disable=SC2086 # Validated names, split on purpose.
+    if ! isIgnoredHost ${thisHostNames}; then
+        dbg "${thisHostNames} not in manifest ignorelist."
         # dirsToCreate is a space-separated list, not an array - needs splitting here.
         for dir in ${dirsToCreate}; do
             createDir "${dir}"
@@ -1623,7 +1680,7 @@ if [ -f "${allHostConf}" ]; then
             linkFiles ${array}
         done
     else
-        dbg "${HOSTNAME} in manifest ignorelist. Don't run manifest"
+        dbg "${thisHostNames} in manifest ignorelist. Don't run manifest"
     fi
 else
     errorExit "Cant find 'manifest': ${allHostConf}"
