@@ -1282,7 +1282,7 @@ remindRemotes() {
             dbg "${remote##*/} is up to date"
             continue
         fi
-        foldIt "-e" "${info}Files for ${remote##*/} changed since the last push, run: ${myName} -R ${remote##*/}${end}"
+        foldIt "-e" "${info}Files for ${remote##*/} changed since the last push, run:\n${myName} -R ${remote##*/}${end}"
     done
     dbg "${FUNCNAME}() leaving function"
 }
