@@ -8,7 +8,8 @@ setup() {
     repo=${LOCAL_HOME}/.get_env/dotfiles/dotfiles-master
     mkdir -p "${T}/bin" "${REMOTE_HOME}" "${repo}/etc" "${repo}/HOSTS/$(hostname)" "${repo}/HOSTS/otherhost"
 
-    printf '%s\n' '#!/bin/bash' 'shift' 'cd "${REMOTE_HOME}" && HOME="${REMOTE_HOME}" exec bash -c "$*"' >"${T}/bin/ssh"
+    printf '%s\n' '#!/bin/bash' '[ -z "${FAIL_SSH}" ] || exit 255' 'shift' \
+        'cd "${REMOTE_HOME}" && HOME="${REMOTE_HOME}" exec bash -c "$*"' >"${T}/bin/ssh"
     chmod +x "${T}/bin/ssh"
 
     printf '%s\n' 'get_envGitServer="github.com"' 'get_envGitUser="spetzreborn"' 'get_envRepository="get_env"' \
@@ -22,6 +23,11 @@ setup() {
     printf '%s\n' '# %%GET_ENV%%' 'alias ll="ls -l"' >"${repo}/etc/.bashrc"
     echo host >"${repo}/HOSTS/$(hostname)/.hostfile"
     echo secret >"${repo}/etc/secret"
+}
+
+# ${output} on one line, since get_env folds long lines.
+joinedOutput() {
+    echo "${output}" | tr '\n' ' ' | tr -s ' '
 }
 
 getEnv() {
@@ -96,4 +102,73 @@ getEnv() {
     run getEnv -R -oProxyCommand=x
     [ "${status}" -ne 0 ]
     [[ "${output}" == *"Invalid host"* ]]
+}
+
+@test "a push is remembered, not a dryrun push" {
+    run getEnv -n -R target
+    [ ! -e "${LOCAL_HOME}/.get_env/remotes/target" ]
+    getEnv -R target
+    [[ " $(head -n 1 "${LOCAL_HOME}/.get_env/remotes/target") " == *" $(hostname) "* ]]
+}
+
+# hostname on the remote host prints ${1} for -f, else ${2}.
+remoteHostname() {
+    printf '%s\n' '#!/bin/bash' "[ \"\$1\" = -f ] && echo ${1} || echo ${2}" >"${T}/bin/hostname"
+    chmod +x "${T}/bin/hostname"
+    for dir in otherhost otherhost.example.org; do
+        mkdir -p "${repo}/HOSTS/${dir}"
+        echo "files2copy[0]=\"/HOSTS/${dir} \$HOME .hostfile\"" >"${repo}/HOSTS/${dir}/manifest"
+        echo "${dir}" >"${repo}/HOSTS/${dir}/.hostfile"
+    done
+}
+
+@test "the HOSTS directory of the remote FQDN is used first" {
+    remoteHostname otherhost.example.org otherhost
+    getEnv -R target
+    [ "$(cat "${REMOTE_HOME}/.hostfile")" = otherhost.example.org ]
+    [ ! -e "${REMOTE_HOME}/.get_env/dotfiles/dotfiles-master/HOSTS/otherhost" ]
+    [ "$(head -n 1 "${LOCAL_HOME}/.get_env/remotes/target")" = "otherhost.example.org otherhost" ]
+}
+
+@test "a remote hostname with domain also finds the short name directory" {
+    remoteHostname otherhost.example.org otherhost.example.org
+    rm -r "${repo}/HOSTS/otherhost.example.org"
+    run getEnv -R target
+    [ "${status}" -eq 0 ]
+    [ "$(cat "${REMOTE_HOME}/.hostfile")" = otherhost ]
+    run getEnv
+    [[ "$(joinedOutput)" != *"run: get_env -R"* ]]
+}
+
+@test "no reminder when nothing changed for the pushed host" {
+    getEnv -R target
+    echo changed >"${repo}/etc/secret"
+    run getEnv
+    [ "${status}" -eq 0 ]
+    [[ "$(joinedOutput)" != *"run: get_env -R"* ]]
+}
+
+@test "reminds when a file of the pushed host changed" {
+    getEnv -R target
+    echo 'alias la="ls -a"' >>"${repo}/etc/.bashrc"
+    run getEnv
+    [ "${status}" -eq 0 ]
+    [[ "$(joinedOutput)" == *"Files for target changed since the last push, run: get_env -R target"* ]]
+    getEnv -R target
+    run getEnv
+    [[ "$(joinedOutput)" != *"run: get_env -R"* ]]
+}
+
+@test "fails when the remote host can't be reached" {
+    export FAIL_SSH=yes
+    run getEnv -R target
+    [ "${status}" -ne 0 ]
+    [[ "${output}" == *"Could not get hostname of target"* ]]
+}
+
+@test "the header on the remote host has the revision of this host" {
+    mkdir -p "${LOCAL_HOME}/.get_env/revisions"
+    echo 0123456789abcdef0123456789abcdef01234567 >"${LOCAL_HOME}/.get_env/revisions/dotfiles-master"
+    getEnv -R target
+    grep -q '%%GET_ENV%% git revision: 0123456' "${REMOTE_HOME}/.bashrc"
 }

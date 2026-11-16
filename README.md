@@ -19,7 +19,9 @@ You can even have multiple get_env with different names and different configurat
 
 ### Manifest
 The repository has a `manifest` in its root for all hosts, and optionally
-`HOSTS/<hostname>/manifest` for a specific host.
+`HOSTS/<hostname>/manifest` for a specific host. The first manifest found of
+`HOSTS/<fqdn>` (`hostname -f`), `HOSTS/<hostname>` and `HOSTS/<short hostname>` is used,
+and `ignoreHosts` matches any of these names.
 
 ```bash
 # Space-separated list of directories to create.
@@ -71,7 +73,11 @@ Linked files (`files2link`) get no header.
 server you don't want the whole repository on. Only the files of `manifest` and
 `HOSTS/<hostname of host>/manifest` are sent, and get_env runs offline there, with its
 workdir and backups in `~/.get_env`. `~/get_env.conf` on that host is overwritten.
-The target never updates itself; run `get_env -R host` again.
+The target never updates itself; run `get_env -R host` again. Every run of get_env
+here reminds you when files for a host changed since the last push to it; remove
+`remotes/<host>` in the workdir to stop that.
 
 ### Tests
 Run `bats test/` (needs [bats-core](https://github.com/bats-core/bats-core)).
+`test/coverage.sh [function...]` shows which lines of get_env the tests run, per
+function, and the missed lines of the named functions.
