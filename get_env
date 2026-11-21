@@ -605,7 +605,8 @@ backupFile() {
     local backupFile="${localWorkDir}/backup/${backupTimestamp}${toDir}/${file}"
     # Quiet, the caller has already started the "making backup" line.
     createDir -q "${backupFile%/*}"
-    if cp -p "${toDir}/${file}" "${backupFile}"; then
+    # -P: a link is backed up as the link, not as the file it points to.
+    if cp -pP "${toDir}/${file}" "${backupFile}"; then
         ok
         dbg "Backed up: ${backupFile}"
         # Visible (non-hidden) index of every file backed up this run, so
