@@ -15,7 +15,8 @@ setup() {
 }
 
 getEnv() {
-    "${BATS_TEST_DIRNAME}/../get_env" -f "$@"
+    # Wide, so long lines are not folded.
+    COLUMNS=500 "${BATS_TEST_DIRNAME}/../get_env" -f "$@"
 }
 
 @test "a host in ignoreHosts skips the common manifest, not its own" {
@@ -66,4 +67,77 @@ getEnv() {
     run getEnv
     [ "${status}" -eq 0 ]
     [ "$(cat "${HOME}/.bashrc")" = common ]
+}
+
+@test "links creates a link to a target outside the repository" {
+    echo 'links[0]="$HOME/bin/python /usr/bin/python3"' >>"${repo}/manifest"
+    run getEnv
+    [ "${status}" -eq 0 ]
+    [ "$(readlink "${HOME}/bin/python")" = /usr/bin/python3 ]
+    [[ "${output}" == *"New or changed links: python"* ]]
+}
+
+@test "links allows åäö and creates a link to a missing target with a warning" {
+    echo 'links[0]="$HOME/bin/mållgan $HOME/later/tool.sh"' >>"${repo}/manifest"
+    run getEnv
+    [ "${status}" -eq 0 ]
+    [ "$(readlink "${HOME}/bin/mållgan")" = "${HOME}/later/tool.sh" ]
+    [[ "${output}" == *"Target of ${HOME}/bin/mållgan does not exist: ${HOME}/later/tool.sh"* ]]
+}
+
+@test "links does not warn for a relative target that exists next to the link" {
+    mkdir "${HOME}/bin"
+    touch "${HOME}/bin/tool.sh"
+    echo 'links[0]="$HOME/bin/tool tool.sh"' >>"${repo}/manifest"
+    run getEnv
+    [ "${status}" -eq 0 ]
+    [ "$(readlink "${HOME}/bin/tool")" = tool.sh ]
+    [[ "${output}" != *"does not exist"* ]]
+}
+
+@test "links backs up a link that points elsewhere, as a link" {
+    mkdir "${HOME}/bin"
+    ln -s /old/target "${HOME}/bin/tool"
+    echo 'links[0]="$HOME/bin/tool /usr/bin/env"' >>"${repo}/manifest"
+    run getEnv
+    [ "${status}" -eq 0 ]
+    [[ "${output}" == *"Found link ${HOME}/bin/tool -> /old/target, making backup"* ]]
+    [ "$(readlink "${HOME}/bin/tool")" = /usr/bin/env ]
+    [ "$(readlink "${HOME}"/.get_env/backup/*"${HOME}/bin/tool")" = /old/target ]
+}
+
+@test "links backs up a file in the way, and a second run changes nothing" {
+    mkdir "${HOME}/bin"
+    echo local >"${HOME}/bin/tool"
+    echo 'links[0]="$HOME/bin/tool /usr/bin/env"' >>"${repo}/manifest"
+    getEnv
+    [ "$(cat "${HOME}"/.get_env/backup/*"${HOME}/bin/tool")" = local ]
+    run getEnv
+    [ "${status}" -eq 0 ]
+    [[ "${output}" != *"Link "* ]]
+}
+
+@test "links in the host manifest wins over the common manifest" {
+    echo 'links[0]="$HOME/bin/tool /common"' >>"${repo}/manifest"
+    echo 'links[0]="$HOME/bin/tool /host"' >"${hostDir}/manifest"
+    run getEnv
+    [ "${status}" -eq 0 ]
+    [ "$(readlink "${HOME}/bin/tool")" = /host ]
+    [ ! -d "${HOME}/.get_env/backup" ]
+}
+
+@test "dryrun does not create links from links" {
+    echo 'links[0]="$HOME/bin/tool /usr/bin/env"' >>"${repo}/manifest"
+    mkdir "${HOME}/bin"
+    run getEnv -n
+    [ "${status}" -eq 0 ]
+    [ ! -L "${HOME}/bin/tool" ]
+    [[ "${output}" == *"These links should have been created or changed: tool"* ]]
+}
+
+@test "a links entry without a target is refused" {
+    echo 'links[0]="$HOME/bin/tool"' >>"${repo}/manifest"
+    run getEnv
+    [ "${status}" -ne 0 ]
+    [[ "${output}" == *"A links entry needs a link and a target: ${HOME}/bin/tool"* ]]
 }

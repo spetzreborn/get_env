@@ -130,6 +130,7 @@ linkedFiles=""
 # Manifest variables, all optional in a manifest.
 files2copy=()
 files2link=()
+links=()
 dirsToCreate=""
 # Destination paths in the host manifest, see overriddenByHost().
 hostTargets=""
@@ -820,6 +821,55 @@ linkFiles() {
     dbg "${FUNCNAME}() leaving function"
 }
 
+# A symlink to anything, not only to a file in the repository. The target need not
+# exist yet, e.g. a program that is installed later.
+# Arg: link target
+createLink() {
+    dbg "${FUNCNAME}() was called, arg: ${*}"
+    if [ ${#} -ne 2 ]; then
+        errorExit "A links entry needs a link and a target: ${*}"
+    fi
+    local link=${1%/}
+    local target=${2}
+    local toDir=${link%/*}
+    local file=${link##*/}
+    createDir "${toDir}"
+    overriddenByHost "${toDir}" "${file}" && return 0
+    # A relative target is relative to the directory of the link.
+    local resolved=${target}
+    [[ "${target}" = /* ]] || resolved="${toDir}/${target}"
+    if [ ! -e "${resolved}" ]; then
+        foldIt "-e" "${info}Target of ${link} does not exist: ${target}${end}"
+    fi
+    if [ -L "${link}" ]; then
+        if [ "$(readlink "${link}")" = "${target}" ]; then
+            dbg "${link} already links to ${target}"
+            return 0
+        fi
+        # The old target is the user's choice, keep it in the backup.
+        if [ -z "${dryrun}" ]; then
+            foldIt "-n" "Found link ${link} -> $(readlink "${link}"), making backup"
+            backupFile "${toDir}" "${file}"
+        fi
+    elif [ -e "${link}" ]; then
+        if [ -z "${dryrun}" ]; then
+            foldIt "-n" "Found file ${link}, making backup"
+            backupFile "${toDir}" "${file}"
+        fi
+    fi
+    foldIt "-n" "Link ${link} -> ${target}"
+    if [ -n "${dryrun}" ]; then
+        dryRun
+        dryrunLinkedFiles="${dryrunLinkedFiles}${file} "
+    elif ln -sfn "${target}" "${link}"; then
+        ok
+        linkedFiles="${linkedFiles}${file} "
+    else
+        failed "Could not link ${link} to ${target}"
+    fi
+    dbg "${FUNCNAME}() leaving function"
+}
+
 # Number of variables that is supposed to be in confFile, is used to check if new confFile will be written
 generateConfFile() {
     dbg "${FUNCNAME}() was called, arg: ${*}"
@@ -980,6 +1030,11 @@ showVariablesHostConfig() {
         dbg "\${files2link[${i}]}: ${fileEntry}"
         ((i++))
     done
+    i=0
+    for fileEntry in "${links[@]}"; do
+        dbg "\${links[${i}]}: ${fileEntry}"
+        ((i++))
+    done
     dbg "${FUNCNAME}() leaving function"
 }
 
@@ -998,7 +1053,7 @@ validateConfig() {
     # and "-" ("-" must be last in a bracket expression, or it is read as a range).
     confValue() { echo "('[${1} -]*'|\"[${1} -]*\"|[${1}-]*)( +#.*)?"; }
     local name="A-Za-z0-9._"
-    local path="A-Za-z0-9/_~.\$"
+    local path="A-Za-z0-9/_~.\$åäöÅÄÖ"
     local number="(\"[0-9]*\"|'[0-9]*'|[0-9]*)"
     # "?", "=" and "&" only when quoted, an unquoted "&" runs the rest in background.
     local url="(\"[A-Za-z0-9/_~.:?=&%-]*\"|'[A-Za-z0-9/_~.:?=&%-]*'|[A-Za-z0-9/_~.:%-]*)"
@@ -1032,6 +1087,7 @@ validateConfig() {
             -e "^dirsToCreate=$(confValue "${path}")$" \
             -e "^files2copy[[][0-9]+[]]=$(confValue "${path}")$" \
             -e "^files2link[[][0-9]+[]]=$(confValue "${path}")$" \
+            -e "^links[[][0-9]+[]]=$(confValue "${path}")$" \
             -e "^ignoreHosts=$(confValue "${path}")$" \
             "${confFile}") || grepStatus=$?
         ;;
@@ -1054,12 +1110,12 @@ validateConfig() {
 }
 
 # Print every file a manifest copies or links: its repository relative path (source),
-# or its destination path (target).
+# or its destination path (target). Entries in links have only a target.
 # Arg: manifest (already validated, so sourcing it only assigns variables) source|target
 manifestFiles() {
     local mode=${2}
     # Local, so the manifest does not overwrite the variables of this run.
-    local -a files2copy=() files2link=()
+    local -a files2copy=() files2link=() links=()
     local dirsToCreate="" ignoreHosts=""
     . "${1}"
     local entry="" fromDir="" toDir="" file=""
@@ -1079,6 +1135,13 @@ manifestFiles() {
             fi
         done
     done
+    if [ "${mode}" = "target" ]; then
+        for entry in "${links[@]}"; do
+            # shellcheck disable=SC2086
+            set -- ${entry}
+            echo "${1%/}"
+        done
+    fi
 }
 
 # True if the host manifest also has dir/file, so the common manifest skips it and the
@@ -1680,6 +1743,10 @@ if [ -f "${allHostConf}" ]; then
             # shellcheck disable=SC2086 # This function need globbing.
             linkFiles ${array}
         done
+        for array in "${links[@]}"; do
+            # shellcheck disable=SC2086 # Validated, split on purpose.
+            createLink ${array}
+        done
     else
         dbg "${thisHostNames} in manifest ignorelist. Don't run manifest"
     fi
@@ -1687,9 +1754,10 @@ else
     errorExit "Cant find 'manifest': ${allHostConf}"
 fi
 
-# Empty ${files2copy}, ${files2link} and ${dirsToCreate} before specific host configuration.
+# Empty the manifest variables before specific host configuration.
 files2copy=()
 files2link=()
+links=()
 dirsToCreate=""
 hostTargets=""
 
@@ -1711,6 +1779,10 @@ if [ -f "${hostConf}" ]; then
     for array in "${files2link[@]}"; do
         # shellcheck disable=SC2086 # This function need globbing.
         linkFiles ${array}
+    done
+    for array in "${links[@]}"; do
+        # shellcheck disable=SC2086 # Validated, split on purpose.
+        createLink ${array}
     done
 fi
 

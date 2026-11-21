@@ -44,13 +44,15 @@ teardown() {
 @test "does not change the variables of the caller" {
     files2copy=(keep)
     files2link=(keep)
+    links=(keep)
     dirsToCreate="keep"
     ignoreHosts="keep"
     printf '%s\n' 'files2copy[0]="etc $HOME .bashrc"' 'files2link[0]="bin $HOME deploy.sh"' \
-        'dirsToCreate="$HOME/sshfs"' 'ignoreHosts="host"' >manifest
+        'links[0]="$HOME/x /y"' 'dirsToCreate="$HOME/sshfs"' 'ignoreHosts="host"' >manifest
     manifestFiles manifest source >/dev/null
     [ "${files2copy[*]}" = "keep" ]
     [ "${files2link[*]}" = "keep" ]
+    [ "${links[*]}" = "keep" ]
     [ "${dirsToCreate}" = "keep" ]
     [ "${ignoreHosts}" = "keep" ]
 }
@@ -59,4 +61,12 @@ teardown() {
     printf '%s\n' 'files2copy[0]="etc $HOME/ .bashrc"' 'files2link[0]="bin /opt/bin deploy.sh"' >manifest
     run manifestFiles manifest target
     [ "${output}" = "${HOME}/.bashrc"$'\n/opt/bin/deploy.sh' ]
+}
+
+@test "links has a target but no source" {
+    printf '%s\n' 'files2copy[0]="etc $HOME .bashrc"' 'links[0]="/opt/bin/python/ /usr/bin/python3"' >manifest
+    run manifestFiles manifest source
+    [ "${output}" = "etc/.bashrc" ]
+    run manifestFiles manifest target
+    [ "${output}" = "${HOME}/.bashrc"$'\n/opt/bin/python' ]
 }
