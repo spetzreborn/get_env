@@ -45,14 +45,16 @@ teardown() {
     files2copy=(keep)
     files2link=(keep)
     links=(keep)
+    onChange=(keep)
     dirsToCreate="keep"
     ignoreHosts="keep"
     printf '%s\n' 'files2copy[0]="etc $HOME .bashrc"' 'files2link[0]="bin $HOME deploy.sh"' \
-        'links[0]="$HOME/x /y"' 'dirsToCreate="$HOME/sshfs"' 'ignoreHosts="host"' >manifest
+        'links[0]="$HOME/x /y"' 'onChange[0]="$HOME/x y"' 'dirsToCreate="$HOME/sshfs"' 'ignoreHosts="host"' >manifest
     manifestFiles manifest source >/dev/null
     [ "${files2copy[*]}" = "keep" ]
     [ "${files2link[*]}" = "keep" ]
     [ "${links[*]}" = "keep" ]
+    [ "${onChange[*]}" = "keep" ]
     [ "${dirsToCreate}" = "keep" ]
     [ "${ignoreHosts}" = "keep" ]
 }

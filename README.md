@@ -32,6 +32,8 @@ files2copy[0]="dotfiles $HOME .bashrc .vimrc"
 files2link[0]="bin $HOME/.local/bin backup.sh deploy.sh"
 # Symlink to anything, one per entry: "link target"
 links[0]="$HOME/.local/bin/python /usr/bin/python3"
+# Printed after the run if the copied file is new or changed: "file what_to_do"
+onChange[0]="$HOME/.bashrc . ~/.bashrc"
 ```
 
 Use double quotes, so `$HOME` is expanded. Destination directories must be absolute
