@@ -153,7 +153,7 @@ remoteHostname() {
     echo 'alias la="ls -a"' >>"${repo}/etc/.bashrc"
     run getEnv
     [ "${status}" -eq 0 ]
-    [[ "$(joinedOutput)" == *"Files for target changed since the last push, run: get_env -R target"* ]]
+    [[ "${output}" == *"changed since the last push, run:"$'\n'"get_env -R target"* ]]
     getEnv -R target
     run getEnv
     [[ "$(joinedOutput)" != *"run: get_env -R"* ]]

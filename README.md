@@ -30,6 +30,10 @@ dirsToCreate="$HOME/.local/bin $HOME/.config/foo"
 files2copy[0]="dotfiles $HOME .bashrc .vimrc"
 # Symlink files instead of copying: "dir_in_repo destination_dir files..."
 files2link[0]="bin $HOME/.local/bin backup.sh deploy.sh"
+# Symlink to anything, one per entry: "link target"
+links[0]="$HOME/.local/bin/python /usr/bin/python3"
+# Printed after the run if the copied file is new or changed: "file what_to_do"
+onChange[0]="$HOME/.bashrc . ~/.bashrc"
 ```
 
 Use double quotes, so `$HOME` is expanded. Destination directories must be absolute
@@ -43,6 +47,10 @@ are kept up to date on every run. A regular file in the way is backed up before 
 replaced by a link. Don't edit linked files in place, the next run overwrites them.
 Links that are removed from the manifest are not removed. Use `files2copy` for
 dotfiles like `.bashrc`, changes in linked files are not detected.
+
+A link in `links` is created even if its target does not exist yet, with a warning. A
+relative target is relative to the directory of the link. A file or a link to
+somewhere else in the way is backed up before it is replaced.
 
 ### Header in copied files
 Put a comment line with `%%GET_ENV%%` in a file in the repository, and it is replaced

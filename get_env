@@ -127,16 +127,21 @@ dryrunUpdatedFiles=""
 dryrunNewFiles=""
 dryrunLinkedFiles=""
 linkedFiles=""
+# Full paths of copied new or changed files, one per line, for onChange.
+changedPaths=""
 # Manifest variables, all optional in a manifest.
 files2copy=()
 files2link=()
+links=()
+onChange=()
 dirsToCreate=""
+# onChange of both manifests.
+allOnChange=()
 # Destination paths in the host manifest, see overriddenByHost().
 hostTargets=""
 noGet_envUpdate=""
 # Set by -r, and then wins over localWorkDir in confFile.
 workDirOption=""
-promptSourceConfigFile=""
 quietMode=""
 reportUrl=""
 startBranch=""
@@ -605,7 +610,8 @@ backupFile() {
     local backupFile="${localWorkDir}/backup/${backupTimestamp}${toDir}/${file}"
     # Quiet, the caller has already started the "making backup" line.
     createDir -q "${backupFile%/*}"
-    if cp -p "${toDir}/${file}" "${backupFile}"; then
+    # -P: a link is backed up as the link, not as the file it points to.
+    if cp -pP "${toDir}/${file}" "${backupFile}"; then
         ok
         dbg "Backed up: ${backupFile}"
         # Visible (non-hidden) index of every file backed up this run, so
@@ -734,11 +740,13 @@ copyFiles() {
                 if [ -n "${dryrun}" ]; then
                     dryRun
                     dryrunUpdatedFiles="${dryrunUpdatedFiles}${file} "
+                    changedPaths+="${toDir%/}/${file}"$'\n'
                 else
                     if cp "${copyFrom}" "${toDir}/${file}"; then
                         ok
                         dbg "Updated file: ${toDir}/${file} copied ok"
                         updatedFiles="${updatedFiles}${file} "
+                        changedPaths+="${toDir%/}/${file}"$'\n'
                     else
                         failed "Could not copy ${sourceFile} to ${toDir}/${file}"
                     fi
@@ -752,11 +760,13 @@ copyFiles() {
             if [ -n "${dryrun}" ]; then
                 dryRun
                 dryrunNewFiles="${dryrunNewFiles}${file} "
+                changedPaths+="${toDir%/}/${file}"$'\n'
             else
                 if cp "${copyFrom}" "${toDir}/${file}" >/dev/null 2>&1; then
                     ok
                     dbg "New file: ${toDir}/${file} copied ok"
                     newFiles="${newFiles}${file} "
+                    changedPaths+="${toDir%/}/${file}"$'\n'
                 else
                     failed "Could not copy ${sourceFile} to ${toDir}/${file}"
                 fi
@@ -816,6 +826,95 @@ linkFiles() {
             fi
         fi
     done
+    dbg "${FUNCNAME}() leaving function"
+}
+
+# A symlink to anything, not only to a file in the repository. The target need not
+# exist yet, e.g. a program that is installed later.
+# Arg: link target
+createLink() {
+    dbg "${FUNCNAME}() was called, arg: ${*}"
+    if [ ${#} -ne 2 ]; then
+        errorExit "A links entry needs a link and a target: ${*}"
+    fi
+    local link=${1%/}
+    local target=${2}
+    local toDir=${link%/*}
+    local file=${link##*/}
+    createDir "${toDir}"
+    overriddenByHost "${toDir}" "${file}" && return 0
+    # A relative target is relative to the directory of the link.
+    local resolved=${target}
+    [[ "${target}" = /* ]] || resolved="${toDir}/${target}"
+    if [ ! -e "${resolved}" ]; then
+        foldIt "-e" "${info}Target of ${link} does not exist: ${target}${end}"
+    fi
+    if [ -L "${link}" ]; then
+        if [ "$(readlink "${link}")" = "${target}" ]; then
+            dbg "${link} already links to ${target}"
+            return 0
+        fi
+        # The old target is the user's choice, keep it in the backup.
+        if [ -z "${dryrun}" ]; then
+            foldIt "-n" "Found link ${link} -> $(readlink "${link}"), making backup"
+            backupFile "${toDir}" "${file}"
+        fi
+    elif [ -e "${link}" ]; then
+        if [ -z "${dryrun}" ]; then
+            foldIt "-n" "Found file ${link}, making backup"
+            backupFile "${toDir}" "${file}"
+        fi
+    fi
+    foldIt "-n" "Link ${link} -> ${target}"
+    if [ -n "${dryrun}" ]; then
+        dryRun
+        dryrunLinkedFiles="${dryrunLinkedFiles}${file} "
+    elif ln -sfn "${target}" "${link}"; then
+        ok
+        linkedFiles="${linkedFiles}${file} "
+    else
+        failed "Could not link ${link} to ${target}"
+    fi
+    dbg "${FUNCNAME}() leaving function"
+}
+
+# Add the onChange entries of the manifest just sourced to ${allOnChange}.
+collectOnChange() {
+    dbg "${FUNCNAME}() was called, arg: ${*}"
+    local entry=""
+    for entry in "${onChange[@]}"; do
+        if [[ "${entry}" != *" "* ]]; then
+            errorExit "An onChange entry needs a file and what to do: ${entry}"
+        fi
+        allOnChange+=("${entry}")
+    done
+    dbg "${FUNCNAME}() leaving function"
+}
+
+# Print what to do for the copied new or changed files in ${allOnChange}, each once.
+showOnChange() {
+    dbg "${FUNCNAME}() was called, arg: ${*}"
+    local entry="" action="" actions=""
+    for entry in "${allOnChange[@]}"; do
+        action=${entry#* }
+        action=${action#"${action%%[! ]*}"}
+        if grep -q -x -F "${entry%% *}" <<<"${changedPaths}" &&
+            ! grep -q -x -F "${action}" <<<"${actions}"; then
+            actions+="${action}"$'\n'
+        fi
+    done
+    [ -n "${actions}" ] || return 0
+    foldIt ""
+    bar
+    if [ -n "${dryrun}" ]; then
+        foldIt "-e" "${info}The changed files would need:${end}"
+    else
+        foldIt "-e" "${info}The changed files need:${end}"
+    fi
+    while IFS= read -r action; do
+        [ -z "${action}" ] || foldIt "    ${action}"
+    done <<<"${actions}"
+    bar
     dbg "${FUNCNAME}() leaving function"
 }
 
@@ -979,6 +1078,16 @@ showVariablesHostConfig() {
         dbg "\${files2link[${i}]}: ${fileEntry}"
         ((i++))
     done
+    i=0
+    for fileEntry in "${links[@]}"; do
+        dbg "\${links[${i}]}: ${fileEntry}"
+        ((i++))
+    done
+    i=0
+    for fileEntry in "${onChange[@]}"; do
+        dbg "\${onChange[${i}]}: ${fileEntry}"
+        ((i++))
+    done
     dbg "${FUNCNAME}() leaving function"
 }
 
@@ -997,7 +1106,7 @@ validateConfig() {
     # and "-" ("-" must be last in a bracket expression, or it is read as a range).
     confValue() { echo "('[${1} -]*'|\"[${1} -]*\"|[${1}-]*)( +#.*)?"; }
     local name="A-Za-z0-9._"
-    local path="A-Za-z0-9/_~.\$"
+    local path="A-Za-z0-9/_~.\$åäöÅÄÖ"
     local number="(\"[0-9]*\"|'[0-9]*'|[0-9]*)"
     # "?", "=" and "&" only when quoted, an unquoted "&" runs the rest in background.
     local url="(\"[A-Za-z0-9/_~.:?=&%-]*\"|'[A-Za-z0-9/_~.:?=&%-]*'|[A-Za-z0-9/_~.:%-]*)"
@@ -1031,6 +1140,8 @@ validateConfig() {
             -e "^dirsToCreate=$(confValue "${path}")$" \
             -e "^files2copy[[][0-9]+[]]=$(confValue "${path}")$" \
             -e "^files2link[[][0-9]+[]]=$(confValue "${path}")$" \
+            -e "^links[[][0-9]+[]]=$(confValue "${path}")$" \
+            -e "^onChange[[][0-9]+[]]=$(confValue "${path}")$" \
             -e "^ignoreHosts=$(confValue "${path}")$" \
             "${confFile}") || grepStatus=$?
         ;;
@@ -1053,12 +1164,12 @@ validateConfig() {
 }
 
 # Print every file a manifest copies or links: its repository relative path (source),
-# or its destination path (target).
+# or its destination path (target). Entries in links have only a target.
 # Arg: manifest (already validated, so sourcing it only assigns variables) source|target
 manifestFiles() {
     local mode=${2}
     # Local, so the manifest does not overwrite the variables of this run.
-    local -a files2copy=() files2link=()
+    local -a files2copy=() files2link=() links=() onChange=()
     local dirsToCreate="" ignoreHosts=""
     . "${1}"
     local entry="" fromDir="" toDir="" file=""
@@ -1078,6 +1189,13 @@ manifestFiles() {
             fi
         done
     done
+    if [ "${mode}" = "target" ]; then
+        for entry in "${links[@]}"; do
+            # shellcheck disable=SC2086
+            set -- ${entry}
+            echo "${1%/}"
+        done
+    fi
 }
 
 # True if the host manifest also has dir/file, so the common manifest skips it and the
@@ -1282,7 +1400,7 @@ remindRemotes() {
             dbg "${remote##*/} is up to date"
             continue
         fi
-        foldIt "-e" "${info}Files for ${remote##*/} changed since the last push, run: ${myName} -R ${remote##*/}${end}"
+        foldIt "-e" "${info}Files for ${remote##*/} changed since the last push, run:\n${myName} -R ${remote##*/}${end}"
     done
     dbg "${FUNCNAME}() leaving function"
 }
@@ -1664,6 +1782,7 @@ if [ -f "${allHostConf}" ]; then
     # Source configuration for all hosts and run actions.
     . "${allHostConf}"
     showVariablesHostConfig "allHostConf"
+    collectOnChange
     # shellcheck disable=SC2086 # Validated names, split on purpose.
     if ! isIgnoredHost ${thisHostNames}; then
         dbg "${thisHostNames} not in manifest ignorelist."
@@ -1679,6 +1798,10 @@ if [ -f "${allHostConf}" ]; then
             # shellcheck disable=SC2086 # This function need globbing.
             linkFiles ${array}
         done
+        for array in "${links[@]}"; do
+            # shellcheck disable=SC2086 # Validated, split on purpose.
+            createLink ${array}
+        done
     else
         dbg "${thisHostNames} in manifest ignorelist. Don't run manifest"
     fi
@@ -1686,9 +1809,11 @@ else
     errorExit "Cant find 'manifest': ${allHostConf}"
 fi
 
-# Empty ${files2copy}, ${files2link} and ${dirsToCreate} before specific host configuration.
+# Empty the manifest variables before specific host configuration.
 files2copy=()
 files2link=()
+links=()
+onChange=()
 dirsToCreate=""
 hostTargets=""
 
@@ -1699,6 +1824,7 @@ if [ -f "${hostConf}" ]; then
     # Source host specific conf and run actions.
     . "${hostConf}"
     showVariablesHostConfig "specific HostConf"
+    collectOnChange
     # dirsToCreate is a space-separated list, not an array - needs splitting here.
     for dir in ${dirsToCreate}; do
         createDir "${dir}"
@@ -1711,46 +1837,17 @@ if [ -f "${hostConf}" ]; then
         # shellcheck disable=SC2086 # This function need globbing.
         linkFiles ${array}
     done
+    for array in "${links[@]}"; do
+        # shellcheck disable=SC2086 # Validated, split on purpose.
+        createLink ${array}
+    done
 fi
 
 # Send to debug which files where new or updated
 dbg "\${newFiles}: ${newFiles}"
 dbg "\${updatedFiles}: ${updatedFiles}"
 
-# Special things for new or updated files:
-# newFiles/updatedFiles are space-separated lists, not arrays - needs splitting here.
-for file in ${newFiles} ${updatedFiles}; do
-    case ${file} in
-    .bashrc*)
-        # There was a change in one of .bashrc(.){files} and need to source .bashrc
-        foldIt "-e" "${info}Noticed change in $HOME/${file}${end}"
-        promptSourceConfigFile=yes
-        ;;
-    esac
-done
-if [ -n "${promptSourceConfigFile}" ]; then
-    foldIt ""
-    bar
-    foldIt "-e" "${info}You need to source .bashrc to get the new functions in this shell${end}"
-    foldIt "eg:  . ~/.bashrc"
-    bar
-fi
-
-# # Special things for new files:
-# for file in ${newFiles}; do
-#    case ${file} in
-#    )
-#    ;;
-#    esac
-# done
-#
-# # Special things for updated files:
-# for file in ${updatedFiles}; do
-#    case ${file} in
-#    )
-#    ;;
-#    esac
-# done
+showOnChange
 
 if [ -z "${newFiles}" ] && [ -z "${updatedFiles}" ] && [ -z "${linkedFiles}" ] && [ -z "${dryrun}" ]; then
     foldIt "No new or changed files."
