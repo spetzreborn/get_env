@@ -149,11 +149,11 @@ getEnv() {
     echo alias >"${repo}/etc/.bashrc.alias"
     run getEnv
     [ "${status}" -eq 0 ]
-    [[ "${output}" == *"The changed files need:"* ]]
+    [[ "${output}" == *"The changed files on $(hostname) need:"* ]]
     [ "$(grep -c -x -F '    . ~/.bashrc' <<<"${output}")" -eq 1 ]
     [[ "${output}" != *never* ]]
     run getEnv
-    [[ "${output}" != *"The changed files need:"* ]]
+    [[ "${output}" != *"The changed files"* ]]
     echo changed >"${repo}/etc/.bashrc"
     run getEnv
     [[ "${output}" == *"    . ~/.bashrc"* ]]
@@ -176,7 +176,7 @@ getEnv() {
     echo 'onChange[0]="$HOME/.bashrc . ~/.bashrc"' >>"${repo}/manifest"
     run getEnv -n
     [ "${status}" -eq 0 ]
-    [[ "${output}" == *"The changed files would need:"* ]]
+    [[ "${output}" == *"The changed files on $(hostname) would need:"* ]]
 }
 
 @test "an onChange entry without an action is refused" {

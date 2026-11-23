@@ -907,9 +907,9 @@ showOnChange() {
     foldIt ""
     bar
     if [ -n "${dryrun}" ]; then
-        foldIt "-e" "${info}The changed files would need:${end}"
+        foldIt "-e" "${info}The changed files on ${HOSTNAME} would need:${end}"
     else
-        foldIt "-e" "${info}The changed files need:${end}"
+        foldIt "-e" "${info}The changed files on ${HOSTNAME} need:${end}"
     fi
     while IFS= read -r action; do
         [ -z "${action}" ] || foldIt "    ${action}"
